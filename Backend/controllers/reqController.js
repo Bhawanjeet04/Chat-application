@@ -2,7 +2,7 @@ const Connection = require('../models/Connection');
 const User = require('../models/User');
 
 
-exports.sendRequest = async (req, res) => {
+exports.sendConnectionRequest = async (req, res) => {
     try {
         const { targetUsername } = req.body; 
         const senderId = req.user._id;

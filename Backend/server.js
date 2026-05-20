@@ -6,6 +6,7 @@ const {Server} = require('socket.io');
 const cors = require('cors')
 
 const authRoutes = require('./routes/authRoutes');
+const reqRoutes = require('./routes/reqRoutes');
 
 dotenv.config();
 
@@ -24,6 +25,7 @@ app.use(express.urlencoded({extended : true}));
 connectDB();
 
 app.use('/api/auth',authRoutes);
+app.use('/api/requests',reqRoutes);
 
 app.get('/',(req,res)=>{
     res.send('Chat Application Backend API is online and waiting for requests.');
