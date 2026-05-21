@@ -50,11 +50,11 @@ server.listen(PORT, ()=>{
 
 const onlineUsers = new Map();
 io.on('connection', (socket) => {
-  console.log(`⚡ A user connected: ${socket.id}`);
+  console.log(` A user connected: ${socket.id}`);
   socket.on('register_user', (userId) => {
     if (userId) {
       onlineUsers.set(userId, socket.id);
-      console.log(`👤 User ${userId} is mapped to socket ${socket.id}`);
+      console.log(`User ${userId} is mapped to socket ${socket.id}`);
       
       io.emit('get_online_users', Array.from(onlineUsers.keys()));
     }
@@ -67,16 +67,16 @@ io.on('connection', (socket) => {
         message: `${senderUsername} wants to connect with you!`,
         senderUsername
       });
-      console.log(`🔔 Instant notification sent from ${senderUsername} to socket ${recipientSocketId}`);
+      console.log(`Instant notification sent from ${senderUsername} to socket ${recipientSocketId}`);
     }
   });
   socket.on('disconnect', () => {
-    console.log(`🔥 A user disconnected: ${socket.id}`);
+    console.log(`A user disconnected: ${socket.id}`);
     
     for (let [userId, socketId] of onlineUsers.entries()) {
       if (socketId === socket.id) {
         onlineUsers.delete(userId);
-        console.log(`❌ Removed user ${userId} from online map.`);
+        console.log(`Removed user ${userId} from online map.`);
         break;
       }
     }
@@ -89,7 +89,7 @@ io.on('connection', (socket) => {
 
     if (recipientSocketId) {
       socket.to(recipientSocketId).emit('receive_message', data);
-      console.log(`💬 Message relayed to socket ${recipientSocketId}`);
+      console.log(` Message relayed to socket ${recipientSocketId}`);
     }
   });
 })
