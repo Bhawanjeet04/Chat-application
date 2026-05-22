@@ -80,17 +80,51 @@ exports.respondToRequest = async (req, res) => {
             return res.status(400).json({ message: 'Invalid action. Must be "accepted" or "declined".' });
         }
         
-        const connection = await Connection.findById(requestId);
+
+        const connection = await Connection.findById(requestId)
+            .populate('sender', 'username')
+            .populate('recipient', 'username');
+
         if (!connection) {
             return res.status(404).json({ message: 'Connection request not found.' });
         }
         
-        if (!connection.recipient.equals(userId)) {
+        if (!connection.recipient._id.equals(userId)) {
             return res.status(403).json({ message: 'Not authorized to respond to this request.' });
         }
         
         connection.status = action;
         await connection.save();
+
+        const io = req.app.get('socketio');
+        const onlineUsers = req.app.get('onlineUsers');
+
+        if (action === 'accepted' && io && onlineUsers) {
+            const senderSocketId = onlineUsers.get(connection.sender._id.toString());
+            const recipientSocketId = onlineUsers.get(connection.recipient._id.toString());
+
+            const sharedPayload = {
+                connectionId: connection._id,
+                status: 'accepted'
+            };
+
+
+            if (senderSocketId) {
+                io.to(senderSocketId).emit('connection_accepted', {
+                    ...sharedPayload,
+                    userId: connection.recipient._id,
+                    username: connection.recipient.username
+                });
+            }
+
+            if (recipientSocketId) {
+                io.to(recipientSocketId).emit('connection_accepted', {
+                    ...sharedPayload,
+                    userId: connection.sender._id,
+                    username: connection.sender.username
+                });
+            }
+        }
 
         res.status(200).json({
             message: `Request successfully ${action}!`,
@@ -98,6 +132,30 @@ exports.respondToRequest = async (req, res) => {
         });
     }
     catch (error) {
+        res.status(500).json({ message: 'Server Error', error: error.message });
+    }
+};
+
+exports.getAcceptedConnections = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        
+        const connections = await Connection.find({
+            status: 'accepted',
+            $or: [{ sender: userId }, { recipient: userId }]
+        }).populate('sender recipient', 'username');
+
+        const formattedList = connections.map(conn => {
+            const targetUser = conn.sender._id.equals(userId) ? conn.recipient : conn.sender;
+            return {
+                connectionId: conn._id,
+                userId: targetUser._id,
+                username: targetUser.username
+            };
+        });
+
+        res.status(200).json(formattedList);
+    } catch (error) {
         res.status(500).json({ message: 'Server Error', error: error.message });
     }
 };
