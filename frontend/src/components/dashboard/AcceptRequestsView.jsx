@@ -4,7 +4,7 @@ export const AcceptRequestsView = ({ username, pendingInvites, onBack, onRespond
   return (
     <div className="flex-1 flex flex-col p-6">
       <div className="flex items-center space-x-4 mb-6 border-b border-[#26262b] pb-4">
-        <button onClick={onBack} className="text-gray-500 hover:text-white transition text-sm">⬅ Back</button>
+        <button onClick={onBack} className="text-gray-500 hover:text-white transition text-sm">Back</button>
         <h2 className="text-lg font-bold tracking-wide">Hello , {username}</h2>
       </div>
 
@@ -15,7 +15,7 @@ export const AcceptRequestsView = ({ username, pendingInvites, onBack, onRespond
 
         <div className="space-y-2 overflow-y-auto max-h-[400px] pr-1">
           {pendingInvites.length === 0 ? (
-            <div className="text-xs text-gray-500 text-center py-8 italic">No pending requests sitting in your pipeline.</div>
+            <div className="text-xs text-gray-500 text-center py-8 italic">No pending requests.</div>
           ) : (
             pendingInvites.map((req) => (
               <div key={req._id} className="flex items-center justify-between p-3 bg-[#1e1e24] border border-[#2d2d35] rounded-lg">

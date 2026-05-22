@@ -49,6 +49,9 @@ server.listen(PORT, ()=>{
 });
 
 const onlineUsers = new Map();
+app.set('io', io);
+app.set('onlineUsers', onlineUsers);
+
 io.on('connection', (socket) => {
   console.log(` A user connected: ${socket.id}`);
   socket.on('register_user', (userId) => {

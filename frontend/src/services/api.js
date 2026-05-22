@@ -24,3 +24,4 @@ export const respondToRequestAPI = (requestId, action) => API.put(`/requests/res
 
 export const getChatHistoryAPI = (connectionId) => API.get(`/chats/${connectionId}`);
 export const getAcceptedConnectionsAPI = () => API.get('/requests/accepted');
+export const removeConnectionAPI = (connectionId) => API.delete(`/chats/${connectionId}`);

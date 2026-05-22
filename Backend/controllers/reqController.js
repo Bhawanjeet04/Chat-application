@@ -62,7 +62,9 @@ exports.sendConnectionRequest = async (req, res) => {
 exports.getPendingRequests = async (req, res) => {
     try {
         const userId = req.user._id;
-        const requests = await Connection.find({ recipient: userId, status: 'pending' }).populate('sender', 'username');
+        const requests = await Connection.find({ 
+            recipient: userId, status: 'pending' 
+        }).populate('sender', 'username');
         res.status(200).json(requests);
     }
     catch (error) {
@@ -70,69 +72,68 @@ exports.getPendingRequests = async (req, res) => {
     }
 };
 
+
 exports.respondToRequest = async (req, res) => {
     try {
-        const { requestId } = req.params; 
-        const { action } = req.body;
-        const userId = req.user._id;
+        const { requestId } = req.params;
+        const { action } = req.body; 
+        const currentUserId = req.user._id;
 
-        if (!['accepted', 'declined'].includes(action)) {
-            return res.status(400).json({ message: 'Invalid action. Must be "accepted" or "declined".' });
-        }
+
+  
+        const connectionRequest = await Connection.findById(requestId).populate('sender recipient');
         
-
-        const connection = await Connection.findById(requestId)
-            .populate('sender', 'username')
-            .populate('recipient', 'username');
-
-        if (!connection) {
-            return res.status(404).json({ message: 'Connection request not found.' });
+        if (!connectionRequest) {
+            return res.status(404).json({ message: "Request not found" });
         }
-        
-        if (!connection.recipient._id.equals(userId)) {
-            return res.status(403).json({ message: 'Not authorized to respond to this request.' });
-        }
-        
-        connection.status = action;
-        await connection.save();
 
-        const io = req.app.get('socketio');
-        const onlineUsers = req.app.get('onlineUsers');
+        if (action === 'accepted') {
+            connectionRequest.status = 'accepted';
+            await connectionRequest.save();
 
-        if (action === 'accepted' && io && onlineUsers) {
-            const senderSocketId = onlineUsers.get(connection.sender._id.toString());
-            const recipientSocketId = onlineUsers.get(connection.recipient._id.toString());
+            const io = req.app.get('io');
+            const onlineUsers = req.app.get('onlineUsers');
 
-            const sharedPayload = {
-                connectionId: connection._id,
-                status: 'accepted'
-            };
+            if (io && onlineUsers) {
+                const sender = connectionRequest.sender;       
+                const recipient = connectionRequest.recipient; 
 
+                const payloadForSender = {
+                    connectionId: connectionRequest._id.toString(),
+                    userId: recipient._id.toString(),
+                    username: recipient.username
+                };
 
-            if (senderSocketId) {
-                io.to(senderSocketId).emit('connection_accepted', {
-                    ...sharedPayload,
-                    userId: connection.recipient._id,
-                    username: connection.recipient.username
-                });
+                const payloadForRecipient = {
+                    connectionId: connectionRequest._id.toString(),
+                    userId: sender._id.toString(),
+                    username: sender.username
+                };
+
+                const senderSocketId = onlineUsers.get(sender._id.toString());
+                if (senderSocketId) {
+                    io.to(senderSocketId).emit('connection_accepted', payloadForSender);
+                }
+
+                const recipientSocketId = onlineUsers.get(recipient._id.toString());
+                if (recipientSocketId) {
+                    io.to(recipientSocketId).emit('connection_accepted', payloadForRecipient);
+                }
             }
+            return res.status(200).json({ message: "Request accepted successfully!" });
+        }
+        
+        if (action === 'declined' || action === 'rejected') {
+            connectionRequest.status = 'declined'; 
+            await connectionRequest.save();
 
-            if (recipientSocketId) {
-                io.to(recipientSocketId).emit('connection_accepted', {
-                    ...sharedPayload,
-                    userId: connection.sender._id,
-                    username: connection.sender.username
-                });
-            }
+            return res.status(200).json({ message: "Request declined successfully!" });
         }
 
-        res.status(200).json({
-            message: `Request successfully ${action}!`,
-            connection
-        });
-    }
-    catch (error) {
-        res.status(500).json({ message: 'Server Error', error: error.message });
+        return res.status(400).json({ message: "Invalid action type." });
+
+    } catch (error) {
+        res.status(500).json({ message: "Server error", error: error.message });
     }
 };
 
