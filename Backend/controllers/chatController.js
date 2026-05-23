@@ -19,9 +19,9 @@ exports.getChatHistory=async(req,res)=>{
         res.status(200).json(messages);
     } 
     catch (error) {
-    res.status(500).json({ message: 'Server Error', error: error.message });
+        res.status(500).json({ message: 'Server Error', error: error.message });
     }
-}
+};
 
 exports.saveMessage=async(req,res)=>{
     try{
@@ -33,17 +33,17 @@ exports.saveMessage=async(req,res)=>{
         }
         const connection = await Connection.findById(connectionId);
         if (!connection || connection.status !== 'accepted') {
-      return res.status(400).json({ message: 'You can only chat with accepted connections.' });
+            return res.status(400).json({ message: 'You can only chat with accepted connections.' });
         }
         if (!connection.preserveHistory) {
-      return res.status(200).json({ message: 'Ephemeral message processed.', ephemeral: true });
-    }
+            return res.status(200).json({ message: 'Ephemeral message processed.', ephemeral: true });
+        }
         const newMessage = await Message.create({
-      connectionId,
-      sender: senderId,
-      text
-    });
-    res.status(201).json(newMessage);
+            connectionId,
+            sender: senderId,
+            text
+        });
+        res.status(201).json(newMessage);
     }
     catch(error){
         res.status(500).json({message: 'Server Error', error: error.message});
@@ -74,4 +74,43 @@ exports.togglePreserveHistory = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
+};
+exports.removeConnection = async (req, res) => {
+    try {
+        const { connectionId } = req.params;
+        const userId = req.user._id;
+
+        const connection = await Connection.findById(connectionId);
+        if (!connection) {
+            return res.status(404).json({ message: 'Chat connection not found.' });
+        }
+
+        if (!connection.sender.equals(userId) && !connection.recipient.equals(userId)) {
+            return res.status(403).json({ message: 'Not authorized to remove this connection.' });
+        }
+
+        const otherUserId = connection.sender.equals(userId) 
+            ? connection.recipient.toString() 
+            : connection.sender.toString();
+
+        const io = req.app.get('io');
+        const onlineUsers = req.app.get('onlineUsers');
+
+        if (io && onlineUsers) {
+            const recipientSocketId = onlineUsers.get(otherUserId);
+            
+            if (recipientSocketId) {
+                io.to(recipientSocketId).emit('connection_removed', { connectionId });
+                console.log(`Live connection removal event pushed to socket ${recipientSocketId}`);
+            }
+        }
+
+        await Message.deleteMany({ connectionId });
+        await Connection.findByIdAndDelete(connectionId);
+
+        res.status(200).json({ message: 'Connection removed successfully.' });
+    } 
+    catch (error) {
+        res.status(500).json({ message: 'Server Error', error: error.message });
+    }
 };

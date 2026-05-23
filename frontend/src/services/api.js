@@ -8,7 +8,6 @@ const API = axios.create({
     withCredentials: true 
 });
 
-
 export const loginAPI = (userData) => API.post('/auth/login', userData);
 export const registerAPI = (userData) => API.post('/auth/register', userData);
 
@@ -19,5 +18,7 @@ export const respondToRequestAPI = (requestId, action) => API.put(`/requests/res
 
 export const getChatHistoryAPI = (connectionId) => API.get(`/chats/${connectionId}`);
 export const getAcceptedConnectionsAPI = () => API.get('/requests/accepted');
+
+export const removeConnectionAPI = (connectionId) => API.delete(`/chats/${connectionId}`);
 
 export default API;

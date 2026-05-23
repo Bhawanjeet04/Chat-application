@@ -1,12 +1,13 @@
 import { useState, useEffect, useContext } from 'react';
 import { io } from 'socket.io-client';
 import { AuthContext } from '../context/AuthContext';
-import { 
-  sendRequestAPI, 
-  getPendingRequestsAPI, 
-  respondToRequestAPI, 
+import {
+  sendRequestAPI,
+  getPendingRequestsAPI,
+  respondToRequestAPI,
   getChatHistoryAPI,
-  getAcceptedConnectionsAPI 
+  getAcceptedConnectionsAPI,
+  removeConnectionAPI
 } from '../services/api';
 import axios from 'axios'; 
 import { VideoCallModal } from '../components/dashboard/VideoCallModal';
@@ -21,15 +22,16 @@ export const DashboardPage = () => {
   const [socket, setSocket] = useState(null);
   const [rightView, setRightView] = useState('default'); 
   
+  // Kept: Video structural states from video branch
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [isIncomingCall, setIsIncomingCall] = useState(false);
   const [activeIncomingOffer, setActiveIncomingOffer] = useState(null);
-
   const [preserveHistory, setPreserveHistory] = useState(false);
+
   const [messages, setMessages] = useState([]);
   const [statusText, setStatusText] = useState({ msg: '', isError: false });
   const [pendingInvites, setPendingInvites] = useState([]);
-  const [activeConnections, setActiveConnections] = useState([]); 
+  const [activeConnections, setActiveConnections] = useState([]);
   const [selectedChatUser, setSelectedChatUser] = useState(null);
 
   const fetchSidebarConnections = async () => {
@@ -38,6 +40,19 @@ export const DashboardPage = () => {
       setActiveConnections(res.data);
     } catch (err) {
       console.error("Failed to load authorized connections", err);
+    }
+  };
+
+  const handleRemoveConnection = async (connectionId) => {
+    try {
+      await removeConnectionAPI(connectionId);
+      setActiveConnections((prev) => prev.filter((c) => c.connectionId !== connectionId));
+      if (selectedChatUser?.connectionId === connectionId) {
+        setSelectedChatUser(null);
+      }
+    } catch (err) {
+      console.error("Removal failure:", err);
+      alert(err.response?.data?.message || "Failed to remove this connection.");
     }
   };
 
@@ -92,6 +107,7 @@ export const DashboardPage = () => {
       fetchInvites();
     });
 
+
     newSocket.on('preserve_toggle_updated', (data) => {
       if (selectedChatUser && selectedChatUser.connectionId === data.connectionId) {
         setPreserveHistory(data.preserveHistory);
@@ -113,12 +129,33 @@ export const DashboardPage = () => {
     });
 
     newSocket.on('receive_message', (msgPayload) => {
-      if (selectedChatUser && msgPayload.sender === selectedChatUser._id) {
-        setMessages((prev) => [...prev, msgPayload]);
-      }
+      setSelectedChatUser((currentSelected) => {
+        if (currentSelected && msgPayload.sender === currentSelected._id) {
+          setMessages((prev) => [...prev, msgPayload]);
+        }
+        return currentSelected;
+      });
     });
 
-    return () => newSocket.disconnect();
+
+    newSocket.on('connection_removed', ({ connectionId }) => {
+      setActiveConnections((prev) => prev.filter((c) => c.connectionId !== connectionId));
+      setSelectedChatUser((currentSelected) => {
+        if (currentSelected?.connectionId === connectionId) {
+          setRightView('default');
+          return null;
+        }
+        return currentSelected;
+      });
+    });
+
+    return () => {
+      newSocket.off('new_connection_request');
+      newSocket.off('connection_accepted');
+      newSocket.off('receive_message');
+      newSocket.off('connection_removed');
+      newSocket.disconnect();
+    };
   }, [user, selectedChatUser]);
 
   const triggerNotification = (msg, isError = false) => {
@@ -130,7 +167,7 @@ export const DashboardPage = () => {
     try {
       const res = await sendRequestAPI(targetUsername);
       triggerNotification(res.data.message, false);
-      
+
       if (socket && res.data.connection) {
         socket.emit('send_connection_request', {
           senderUsername: user.username,
@@ -147,8 +184,16 @@ export const DashboardPage = () => {
     try {
       await respondToRequestAPI(requestId, action);
       triggerNotification(`Request ${action} successfully!`, false);
-      fetchInvites();
-    } catch (err) {
+
+      setPendingInvites((prevInvites) => 
+        prevInvites.filter((invite) => invite._id !== requestId)
+      );
+
+      if (action === 'accepted') {
+        fetchSidebarConnections(); 
+      }
+    } 
+    catch (err) {
       triggerNotification("Failed executing response action", true);
     }
   };
@@ -221,13 +266,13 @@ export const DashboardPage = () => {
   return (
     <div className="flex h-screen w-screen bg-[#121214] text-gray-200 overflow-hidden font-sans select-none antialiased">
       {statusText.msg && (
-        <div className={`absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-md shadow-xl text-xs font-semibold z-50 border ${
-          statusText.isError ? 'bg-red-950 border-red-800 text-red-200' : 'bg-blue-950 border-blue-800 text-blue-200'
-        }`}>
+        <div className={`absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-md shadow-xl text-xs font-semibold z-50 border ${statusText.isError ? 'bg-red-950 border-red-800 text-red-200' : 'bg-blue-950 border-blue-800 text-blue-200'
+          }`}>
           {statusText.msg}
         </div>
       )}
 
+      {/* Kept: Call Modal element allocation */}
       {showVideoModal && selectedChatUser && (
         <VideoCallModal 
           socket={socket}
@@ -248,12 +293,13 @@ export const DashboardPage = () => {
         activeConnections={activeConnections}
         selectedChatUser={selectedChatUser}
         onSelectChat={handleSelectChat}
+        onRemoveConnection={handleRemoveConnection} // Kept main branch handler mapping
         onLogout={logout}
       />
 
       <div className="flex-1 flex flex-col bg-[#0f0f11] relative">
         {rightView === 'default' && (
-          <DefaultView 
+          <DefaultView
             username={user?.username}
             pendingInvitesCount={pendingInvites.length}
             setRightView={setRightView}
@@ -262,7 +308,7 @@ export const DashboardPage = () => {
         )}
 
         {rightView === 'send_request' && (
-          <SendRequestView 
+          <SendRequestView
             username={user?.username}
             onBack={() => setRightView('default')}
             onSendRequest={handleSendRequest}
@@ -270,7 +316,7 @@ export const DashboardPage = () => {
         )}
 
         {rightView === 'accept_requests' && (
-          <AcceptRequestsView 
+          <AcceptRequestsView
             username={user?.username}
             pendingInvites={pendingInvites}
             onBack={() => setRightView('default')}
@@ -279,17 +325,18 @@ export const DashboardPage = () => {
         )}
 
         {rightView === 'chat' && selectedChatUser && (
-          <ChatView 
+          <ChatView
             selectedChatUser={selectedChatUser}
             messages={messages}
             currentUserId={user?.id}
             onSendMessage={handleSendMessage}
             triggerVideoCallNotice={() => {
               setIsIncomingCall(false);
+              setActiveIncomingOffer(null); // Combined optimization
               setShowVideoModal(true);
             }}
-            preserveHistory={preserveHistory}
-            onToggleHistory={handleToggleHistory}
+            preserveHistory={preserveHistory} // Kept feature props mapping
+            onToggleHistory={handleToggleHistory} // Kept feature props mapping
           />
         )}
       </div>
