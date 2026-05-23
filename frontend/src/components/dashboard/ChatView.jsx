@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 
-export const ChatView = ({ selectedChatUser, messages, currentUserId, onSendMessage, triggerVideoCallNotice }) => {
+export const ChatView = ({ selectedChatUser, messages, currentUserId, onSendMessage, triggerVideoCallNotice ,preserveHistory,onToggleHistory}) => {
   const [newMessage, setNewMessage] = useState('');
   const messageEndRef = useRef(null);
 
@@ -21,12 +21,26 @@ export const ChatView = ({ selectedChatUser, messages, currentUserId, onSendMess
         <div>
           <h2 className="text-sm font-bold text-gray-200 tracking-wide">{selectedChatUser.username}</h2>
         </div>
-        <button 
-          onClick={triggerVideoCallNotice}
-          className="px-3 py-1.5 bg-[#1c1c22] hover:bg-[#25252e] border border-[#32323d] rounded text-xs font-medium text-gray-300 hover:text-white transition active:scale-95"
-        >
-          video call
-        </button>
+<div className="flex items-center space-x-3">
+          <button
+            onClick={() => onToggleHistory(!preserveHistory)}
+            className={`px-3 py-1.5 border rounded text-xs font-medium transition active:scale-95 flex items-center space-x-1.5 ${
+              preserveHistory 
+                ? 'bg-blue-600/10 border-blue-500/40 text-blue-400 hover:bg-blue-600/20' 
+                : 'bg-[#1c1c22] border-[#32323d] text-gray-400 hover:text-white hover:bg-[#25252e]'
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${preserveHistory ? 'bg-blue-400 animate-pulse' : 'bg-gray-600'}`}></span>
+            <span>{preserveHistory ? 'History: On' : 'History: Off'}</span>
+          </button>
+
+          <button 
+            onClick={triggerVideoCallNotice}
+            className="px-3 py-1.5 bg-[#1c1c22] hover:bg-[#25252e] border border-[#32323d] rounded text-xs font-medium text-gray-300 hover:text-white transition active:scale-95"
+          >
+            video call
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#0c0c0e]">
