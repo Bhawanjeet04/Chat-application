@@ -15,6 +15,10 @@ const connectionSchema = new mongoose.Schema({
     type: String,
     enum: ['pending', 'accepted', 'declined'],
     default: 'pending'
+  },
+  preserveHistory: {
+    type: Boolean,
+    default: false 
   }
 }, { timestamps: true });
 

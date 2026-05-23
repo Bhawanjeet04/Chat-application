@@ -35,6 +35,9 @@ exports.saveMessage=async(req,res)=>{
         if (!connection || connection.status !== 'accepted') {
       return res.status(400).json({ message: 'You can only chat with accepted connections.' });
         }
+        if (!connection.preserveHistory) {
+      return res.status(200).json({ message: 'Ephemeral message processed.', ephemeral: true });
+    }
         const newMessage = await Message.create({
       connectionId,
       sender: senderId,
@@ -45,4 +48,30 @@ exports.saveMessage=async(req,res)=>{
     catch(error){
         res.status(500).json({message: 'Server Error', error: error.message});
     }
+};
+
+exports.togglePreserveHistory = async (req, res) => {
+  try {
+    const { connectionId } = req.params;
+    const { preserveHistory } = req.body; 
+
+    const connection = await Connection.findById(connectionId);
+    if (!connection) {
+      return res.status(404).json({ message: 'Connection link not found.' });
+    }
+
+    if (!connection.sender.equals(req.user._id) && !connection.recipient.equals(req.user._id)) {
+      return res.status(403).json({ message: 'Not authorized to change settings for this chat.' });
+    }
+
+    connection.preserveHistory = preserveHistory;
+    await connection.save();
+
+    res.status(200).json({
+      message: `Chat history retention set to ${preserveHistory}`,
+      preserveHistory: connection.preserveHistory
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error: error.message });
+  }
 };

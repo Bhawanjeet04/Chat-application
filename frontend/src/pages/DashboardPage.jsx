@@ -8,7 +8,8 @@ import {
   getChatHistoryAPI,
   getAcceptedConnectionsAPI 
 } from '../services/api';
-
+import axios from 'axios'; 
+import { VideoCallModal } from '../components/dashboard/VideoCallModal';
 import { Sidebar } from '../components/dashboard/Sidebar';
 import { DefaultView } from '../components/dashboard/DefaultView';
 import { SendRequestView } from '../components/dashboard/SendRequestView';
@@ -20,6 +21,11 @@ export const DashboardPage = () => {
   const [socket, setSocket] = useState(null);
   const [rightView, setRightView] = useState('default'); 
   
+  const [showVideoModal, setShowVideoModal] = useState(false);
+  const [isIncomingCall, setIsIncomingCall] = useState(false);
+  const [activeIncomingOffer, setActiveIncomingOffer] = useState(null);
+
+  const [preserveHistory, setPreserveHistory] = useState(false);
   const [messages, setMessages] = useState([]);
   const [statusText, setStatusText] = useState({ msg: '', isError: false });
   const [pendingInvites, setPendingInvites] = useState([]);
@@ -45,15 +51,36 @@ export const DashboardPage = () => {
   };
 
   useEffect(() => {
+    if (!socket) return;
+
+    socket.on('video_call_offer_received', (data) => {
+      const isValidFriend = activeConnections.some(conn => conn.userId === data.senderId);
+      
+      if (isValidFriend) {
+        const companion = activeConnections.find(conn => conn.userId === data.senderId);
+        setSelectedChatUser({
+          _id: companion.userId,
+          username: companion.username,
+          connectionId: companion.connectionId
+        });
+        setActiveIncomingOffer(data.offer);
+        setIsIncomingCall(true);
+        setShowVideoModal(true);
+      }
+    });
+
+    return () => socket.off('video_call_offer_received');
+  }, [socket, activeConnections]);
+
+  useEffect(() => {
     if (user) {
       fetchSidebarConnections();
       fetchInvites();
     }
   }, [user]);
 
-
   useEffect(() => {
-    const newSocket = io('http://localhost:5000');
+    const newSocket = io('http://localhost:5000', { withCredentials: true });
     setSocket(newSocket);
 
     if (user) {
@@ -65,6 +92,17 @@ export const DashboardPage = () => {
       fetchInvites();
     });
 
+    newSocket.on('preserve_toggle_updated', (data) => {
+      if (selectedChatUser && selectedChatUser.connectionId === data.connectionId) {
+        setPreserveHistory(data.preserveHistory);
+      }
+      
+      setActiveConnections(prev => prev.map(conn => 
+        conn.connectionId === data.connectionId 
+          ? { ...conn, preserveHistory: data.preserveHistory } 
+          : conn
+      ));
+    });
 
     newSocket.on('connection_accepted', (newFriend) => {
       setActiveConnections((prev) => {
@@ -116,8 +154,10 @@ export const DashboardPage = () => {
   };
 
   const handleSelectChat = async (conn) => {
-    setSelectedChatUser({ _id: conn.userId, username: conn.username, connectionId: conn.connectionId });
+    setSelectedChatUser({ _id: conn.userId, userId: conn.userId, username: conn.username, connectionId: conn.connectionId });
+    setPreserveHistory(conn.preserveHistory || false);
     setRightView('chat');
+    
     try {
       const res = await getChatHistoryAPI(conn.connectionId);
       setMessages(res.data);
@@ -126,7 +166,7 @@ export const DashboardPage = () => {
     }
   };
 
-  const handleSendMessage = (messageText) => {
+  const handleSendMessage = async (messageText) => {
     if (!selectedChatUser) return;
 
     const payload = {
@@ -139,6 +179,43 @@ export const DashboardPage = () => {
 
     socket.emit('send_message', payload);
     setMessages((prev) => [...prev, payload]);
+
+    try {
+      await axios.post('http://localhost:5000/api/chats/message', {
+        connectionId: selectedChatUser.connectionId,
+        text: messageText
+      }, { withCredentials: true }); 
+    } catch (err) {
+      console.error("Message backup pipeline failed processing:", err.response?.data || err.message);
+    }
+  };
+
+  const handleToggleHistory = async (newState) => {
+    if (!selectedChatUser) return;
+    try {
+      await axios.put(`http://localhost:5000/api/chats/toggle-preserve/${selectedChatUser.connectionId}`, {
+        preserveHistory: newState
+      }, { withCredentials: true });
+
+      setPreserveHistory(newState);
+
+      setActiveConnections(prev => prev.map(conn => 
+        conn.connectionId === selectedChatUser.connectionId 
+          ? { ...conn, preserveHistory: newState } 
+          : conn
+      ));
+
+      socket.emit('update_preserve_toggle', {
+        recipientId: selectedChatUser._id,
+        connectionId: selectedChatUser.connectionId,
+        preserveHistory: newState
+      });
+
+      triggerNotification(`Chat history retention turned ${newState ? 'ON' : 'OFF'}.`, false);
+    } catch (err) {
+      console.error("Toggle error:", err.response?.data || err.message);
+      triggerNotification("Failed to update privacy configuration context state.", true);
+    }
   };
 
   return (
@@ -149,6 +226,21 @@ export const DashboardPage = () => {
         }`}>
           {statusText.msg}
         </div>
+      )}
+
+      {showVideoModal && selectedChatUser && (
+        <VideoCallModal 
+          socket={socket}
+          selectedChatUser={selectedChatUser}
+          currentUserId={user?.id}
+          isIncomingCall={isIncomingCall}
+          incomingOffer={activeIncomingOffer}
+          onClose={() => {
+            setShowVideoModal(false);
+            setIsIncomingCall(false);
+            setActiveIncomingOffer(null);
+          }}
+        />
       )}
 
       <Sidebar 
@@ -192,7 +284,12 @@ export const DashboardPage = () => {
             messages={messages}
             currentUserId={user?.id}
             onSendMessage={handleSendMessage}
-            triggerVideoCallNotice={() => triggerNotification("Video feature integration framework coming soon.", false)}
+            triggerVideoCallNotice={() => {
+              setIsIncomingCall(false);
+              setShowVideoModal(true);
+            }}
+            preserveHistory={preserveHistory}
+            onToggleHistory={handleToggleHistory}
           />
         )}
       </div>
