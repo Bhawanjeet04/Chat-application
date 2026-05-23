@@ -23,21 +23,23 @@ exports.getChatHistory=async(req,res)=>{
     }
 };
 
-exports.saveMessage=async(req,res)=>{
-    try{
-        const{connectionId,text}=req.body;
-        const senderId=req.user._id;
+exports.saveMessage = async (req, res) => {
+    try {
+        const { connectionId, text } = req.body;
+        const senderId = req.user._id;
 
-        if(!text){
-            return res.status(400).json({message:'Message content required.'});
+        if (!text) {
+            return res.status(400).json({ message: 'Message content required.' });
         }
         const connection = await Connection.findById(connectionId);
         if (!connection || connection.status !== 'accepted') {
             return res.status(400).json({ message: 'You can only chat with accepted connections.' });
         }
-        if (!connection.preserveHistory) {
+
+        if (connection.preserveHistory === false) {
             return res.status(200).json({ message: 'Ephemeral message processed.', ephemeral: true });
         }
+
         const newMessage = await Message.create({
             connectionId,
             sender: senderId,
@@ -45,8 +47,8 @@ exports.saveMessage=async(req,res)=>{
         });
         res.status(201).json(newMessage);
     }
-    catch(error){
-        res.status(500).json({message: 'Server Error', error: error.message});
+    catch (error) {
+        res.status(500).json({ message: 'Server Error', error: error.message });
     }
 };
 

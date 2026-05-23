@@ -79,10 +79,17 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('disconnect', () => {
+  socket.on('disconnect', async() => {
     console.log(`A user disconnected: ${socket.id}`);
     for (let [userId, socketId] of onlineUsers.entries()) {
       if (socketId === socket.id) {
+        try {
+          const User = require('./models/User'); // Import User model safely
+          await User.findByIdAndUpdate(userId, { lastSeen: new Date() });
+          console.log(`Saved lastSeen timestamp for user: ${userId}`);
+        } catch (err) {
+          console.error("Failed to save lastSeen timestamp:", err.message);
+        }
         onlineUsers.delete(userId);
         console.log(`Removed user ${userId} from online map.`);
         break;

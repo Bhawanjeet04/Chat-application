@@ -21,13 +21,13 @@ export const DashboardPage = () => {
   const { user, logout } = useContext(AuthContext);
   const [socket, setSocket] = useState(null);
   const [rightView, setRightView] = useState('default'); 
-  
+  const [sentRequests, setSentRequests] = useState([]);
   // Kept: Video structural states from video branch
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [isIncomingCall, setIsIncomingCall] = useState(false);
   const [activeIncomingOffer, setActiveIncomingOffer] = useState(null);
   const [preserveHistory, setPreserveHistory] = useState(false);
-
+  const [onlineUserIds, setOnlineUserIds] = useState([]);
   const [messages, setMessages] = useState([]);
   const [statusText, setStatusText] = useState({ msg: '', isError: false });
   const [pendingInvites, setPendingInvites] = useState([]);
@@ -56,6 +56,23 @@ export const DashboardPage = () => {
     }
   };
 
+  const formatLastSeen = (dateString) => {
+  if (!dateString) return 'Offline';
+  
+  const now = new Date();
+  const past = new Date(dateString);
+  const diffInMs = now - past;
+  
+  const mins = Math.floor(diffInMs / 1000 / 60);
+  const hours = Math.floor(mins / 60);
+  const days = Math.floor(hours / 24);
+
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  return `${days}d ago`;
+};
+
   const fetchInvites = async () => {
     try {
       const res = await getPendingRequestsAPI();
@@ -64,6 +81,17 @@ export const DashboardPage = () => {
       console.error("Failed loading requests", err);
     }
   };
+
+  const fetchSentRequests = async () => {
+  try {
+    const res = await getSentRequestsAPI();
+    setSentRequests(res.data);
+  } catch (err) {
+    console.error("Failed loading sent requests tracking:", err);
+  }
+};
+
+
 
   useEffect(() => {
     if (!socket) return;
@@ -91,6 +119,7 @@ export const DashboardPage = () => {
     if (user) {
       fetchSidebarConnections();
       fetchInvites();
+      fetchSentRequests();
     }
   }, [user]);
 
@@ -125,13 +154,27 @@ export const DashboardPage = () => {
         if (prev.some(conn => conn.connectionId === newFriend.connectionId)) return prev;
         return [...prev, newFriend];
       });
+      fetchSentRequests();
       triggerNotification(`You are now connected with @${newFriend.username}!`, false);
     });
 
     newSocket.on('receive_message', (msgPayload) => {
       setSelectedChatUser((currentSelected) => {
-        if (currentSelected && msgPayload.sender === currentSelected._id) {
-          setMessages((prev) => [...prev, msgPayload]);
+        if (currentSelected && msgPayload.connectionId === currentSelected.connectionId) {
+          
+          setMessages((prev) => {
+            const isAlreadyRendered = prev.some(
+              (msg) => msg.text === msgPayload.text && 
+                       msg.sender === msgPayload.sender &&
+                       Math.abs(new Date(msg.createdAt) - new Date(msgPayload.createdAt)) < 2000 // Sent within 2 seconds
+            );
+
+            if (isAlreadyRendered) {
+              return prev;
+            }
+            
+            return [...prev, msgPayload]; 
+          });
         }
         return currentSelected;
       });
@@ -139,6 +182,9 @@ export const DashboardPage = () => {
 
 
     newSocket.on('connection_removed', ({ connectionId }) => {
+      newSocket.on('get_online_users', (userIdsList) => {
+      setOnlineUserIds(userIdsList);
+    });
       setActiveConnections((prev) => prev.filter((c) => c.connectionId !== connectionId));
       setSelectedChatUser((currentSelected) => {
         if (currentSelected?.connectionId === connectionId) {
@@ -157,6 +203,8 @@ export const DashboardPage = () => {
       newSocket.disconnect();
     };
   }, [user, selectedChatUser]);
+
+  
 
   const triggerNotification = (msg, isError = false) => {
     setStatusText({ msg, isError });
@@ -199,7 +247,7 @@ export const DashboardPage = () => {
   };
 
   const handleSelectChat = async (conn) => {
-    setSelectedChatUser({ _id: conn.userId, userId: conn.userId, username: conn.username, connectionId: conn.connectionId });
+    setSelectedChatUser({ _id: conn.userId, userId: conn.userId, username: conn.username, connectionId: conn.connectionId, lastSeen: conn.lastSeen });
     setPreserveHistory(conn.preserveHistory || false);
     setRightView('chat');
     
@@ -310,6 +358,8 @@ export const DashboardPage = () => {
         {rightView === 'send_request' && (
           <SendRequestView
             username={user?.username}
+            sentRequests={sentRequests}
+            onRefreshSentRequests={fetchSentRequests}
             onBack={() => setRightView('default')}
             onSendRequest={handleSendRequest}
           />
@@ -324,7 +374,7 @@ export const DashboardPage = () => {
           />
         )}
 
-        {rightView === 'chat' && selectedChatUser && (
+{rightView === 'chat' && selectedChatUser && (
           <ChatView
             selectedChatUser={selectedChatUser}
             messages={messages}
@@ -332,11 +382,19 @@ export const DashboardPage = () => {
             onSendMessage={handleSendMessage}
             triggerVideoCallNotice={() => {
               setIsIncomingCall(false);
-              setActiveIncomingOffer(null); // Combined optimization
+              setActiveIncomingOffer(null);
               setShowVideoModal(true);
             }}
-            preserveHistory={preserveHistory} // Kept feature props mapping
-            onToggleHistory={handleToggleHistory} // Kept feature props mapping
+            preserveHistory={preserveHistory}
+            onToggleHistory={handleToggleHistory}
+            
+            // 💡 FIX: Check all possible ID property naming variants variations to ensure it never misses a match!
+            isOnline={
+              onlineUserIds.includes(selectedChatUser._id) || 
+              onlineUserIds.includes(selectedChatUser.userId) ||
+              onlineUserIds.includes(selectedChatUser.id)
+            }
+            statusSubtext={formatLastSeen(selectedChatUser.lastSeen)}
           />
         )}
       </div>

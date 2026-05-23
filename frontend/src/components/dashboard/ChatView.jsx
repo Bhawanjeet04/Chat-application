@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 
-export const ChatView = ({ selectedChatUser, messages, currentUserId, onSendMessage, triggerVideoCallNotice ,preserveHistory,onToggleHistory}) => {
+export const ChatView = ({ selectedChatUser, messages, currentUserId, onSendMessage, triggerVideoCallNotice ,preserveHistory,onToggleHistory, isOnline, statusSubtext}) => {
   const [newMessage, setNewMessage] = useState('');
   const messageEndRef = useRef(null);
 
@@ -20,6 +20,9 @@ export const ChatView = ({ selectedChatUser, messages, currentUserId, onSendMess
       <div className="p-4 bg-[#141417] border-b border-[#26262b] flex items-center justify-between">
         <div>
           <h2 className="text-sm font-bold text-gray-200 tracking-wide">{selectedChatUser.username}</h2>
+          <span className={`text-[11px] font-medium tracking-wide ${isOnline ? 'text-green-500' : 'text-gray-400'}`}>
+        {isOnline ? '● Online' : `Last seen: ${statusSubtext}`}
+      </span>
         </div>
 <div className="flex items-center space-x-3">
           <button

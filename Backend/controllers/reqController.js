@@ -144,16 +144,45 @@ exports.getAcceptedConnections = async (req, res) => {
         const connections = await Connection.find({
             status: 'accepted',
             $or: [{ sender: userId }, { recipient: userId }]
-        }).populate('sender recipient', 'username');
+        }).populate('sender recipient', 'username lastSeen'); // 💡 Added lastSeen to the populate target fields
 
         const formattedList = connections.map(conn => {
             const targetUser = conn.sender._id.equals(userId) ? conn.recipient : conn.sender;
             return {
                 connectionId: conn._id,
                 userId: targetUser._id,
-                username: targetUser.username
+                username: targetUser.username,
+                preserveHistory: conn.preserveHistory,
+                lastSeen: targetUser.lastSeen // 💡 Passed down cleanly to the React app
             };
         });
+
+        res.status(200).json(formattedList);
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error', error: error.message });
+    }
+};
+
+
+exports.getSentRequests = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        
+        // Fetch outgoing pending requests
+        const requests = await Connection.find({ 
+            sender: userId, 
+            status: 'pending' 
+        }).populate('recipient', 'username');
+
+        // 💡 FIX: Structure the payload mapping to explicitly include the recipient profile metadata
+        const formattedList = requests.map(reqItem => ({
+            _id: reqItem._id,
+            recipient: {
+                _id: reqItem.recipient._id,
+                username: reqItem.recipient.username
+            },
+            createdAt: reqItem.createdAt
+        }));
 
         res.status(200).json(formattedList);
     } catch (error) {
