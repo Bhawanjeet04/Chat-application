@@ -22,7 +22,6 @@ export const DashboardPage = () => {
   const [socket, setSocket] = useState(null);
   const [rightView, setRightView] = useState('default'); 
   const [sentRequests, setSentRequests] = useState([]);
-  // Kept: Video structural states from video branch
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [isIncomingCall, setIsIncomingCall] = useState(false);
   const [activeIncomingOffer, setActiveIncomingOffer] = useState(null);
@@ -166,7 +165,7 @@ export const DashboardPage = () => {
             const isAlreadyRendered = prev.some(
               (msg) => msg.text === msgPayload.text && 
                        msg.sender === msgPayload.sender &&
-                       Math.abs(new Date(msg.createdAt) - new Date(msgPayload.createdAt)) < 2000 // Sent within 2 seconds
+                       Math.abs(new Date(msg.createdAt) - new Date(msgPayload.createdAt)) < 2000 
             );
 
             if (isAlreadyRendered) {
@@ -314,13 +313,12 @@ export const DashboardPage = () => {
   return (
     <div className="flex h-screen w-screen bg-[#121214] text-gray-200 overflow-hidden font-sans select-none antialiased">
       {statusText.msg && (
-        <div className={`absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-md shadow-xl text-xs font-semibold z-50 border ${statusText.isError ? 'bg-red-950 border-red-800 text-red-200' : 'bg-blue-950 border-blue-800 text-blue-200'
+        <div className={`absolute top-4 right-[-8%] -translate-x-1/2 px-4 py-2 rounded-md shadow-xl text-xs font-semibold z-50 border ${statusText.isError ? 'bg-red-950 border-red-800 text-red-200' : 'bg-blue-950 border-blue-800 text-blue-200'
           }`}>
           {statusText.msg}
         </div>
       )}
 
-      {/* Kept: Call Modal element allocation */}
       {showVideoModal && selectedChatUser && (
         <VideoCallModal 
           socket={socket}
@@ -341,7 +339,7 @@ export const DashboardPage = () => {
         activeConnections={activeConnections}
         selectedChatUser={selectedChatUser}
         onSelectChat={handleSelectChat}
-        onRemoveConnection={handleRemoveConnection} // Kept main branch handler mapping
+        onRemoveConnection={handleRemoveConnection} 
         onLogout={logout}
       />
 
@@ -387,13 +385,8 @@ export const DashboardPage = () => {
             }}
             preserveHistory={preserveHistory}
             onToggleHistory={handleToggleHistory}
+            onBack={() => setRightView('default')}
             
-            // 💡 FIX: Check all possible ID property naming variants variations to ensure it never misses a match!
-            isOnline={
-              onlineUserIds.includes(selectedChatUser._id) || 
-              onlineUserIds.includes(selectedChatUser.userId) ||
-              onlineUserIds.includes(selectedChatUser.id)
-            }
             statusSubtext={formatLastSeen(selectedChatUser.lastSeen)}
           />
         )}

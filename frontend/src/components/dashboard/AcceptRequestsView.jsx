@@ -1,10 +1,12 @@
 import React from 'react';
+import { GoArrowLeft } from "react-icons/go";
+
 
 export const AcceptRequestsView = ({ username, pendingInvites, onBack, onRespond }) => {
   return (
-    <div className="flex-1 flex flex-col p-6">
-      <div className="flex items-center space-x-4 mb-6 border-b border-[#26262b] pb-4">
-        <button onClick={onBack} className="text-gray-500 hover:text-white transition text-sm">Back</button>
+    <div className="flex-1 flex flex-col p-6 ">
+      <div className="flex items-center space-x-4 mb-6 border-b border-[#26262b] pb-4 pl-3 gap-[40%]">
+        <button onClick={onBack} className="text-gray-500 text-2xl hover:text-white transition"><GoArrowLeft /></button>
         <h2 className="text-lg font-bold tracking-wide">Hello , {username}</h2>
       </div>
 

@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { getSentRequestsAPI } from "../../services/api";
+import { GoArrowLeft } from "react-icons/go";
+
 
 export const SendRequestView = ({ username, onBack, onSendRequest}) => {
   const [searchUsername, setSearchUsername] = useState('');
   const [sentRequests, setSentRequests] = useState([]);
 
-  // Fetch the current user's outgoing pending invitations
+
   const fetchSentRequests = async () => {
     try {
       const res = await getSentRequestsAPI();
@@ -23,23 +25,22 @@ export const SendRequestView = ({ username, onBack, onSendRequest}) => {
     e.preventDefault();
     if (!searchUsername.trim()) return;
     
-    // Pass execution down to dashboard handler context
     onSendRequest(searchUsername.trim(), () => {
       setSearchUsername('');
-      fetchSentRequests(); // 💡 Refresh the view list immediately once the request clears successfully!
+      fetchSentRequests(); 
     });
   };
 
   return (
     <div className="flex-1 flex flex-col p-6">
-      <div className="flex items-center space-x-4 mb-6 border-b border-[#26262b] pb-4">
-        <button onClick={onBack} className="text-gray-500 hover:text-white transition text-sm">⬅ Back</button>
+      <div className="flex items-center space-x-4 mb-6 border-b border-[#26262b] pb-4 gap-[40%]">
+        <button onClick={onBack} className="text-gray-500 text-2xl hover:text-white transition"><GoArrowLeft /></button>
         <h2 className="text-lg font-bold tracking-wide">Hello, {username}</h2>
       </div>
 
       <div className="max-w-md w-full mx-auto bg-[#141417] border border-[#26262b] rounded-xl p-6 mt-10 shadow-xl flex flex-col space-y-6">
         <div>
-          <h3 className="text-sm font-semibold text-gray-400 mb-4 tracking-wider uppercase">Search Connection Identity</h3>
+          <h3 className="text-sm font-semibold text-gray-400 mb-4 tracking-wider uppercase text-center">Search for User</h3>
           <form onSubmit={handleSubmit} className="flex space-x-2">
             <input 
               type="text"

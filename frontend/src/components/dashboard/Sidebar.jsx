@@ -45,7 +45,7 @@ export const Sidebar = ({ user, activeConnections, selectedChatUser, onSelectCha
               <button
                 onClick={(e) => {
                   e.stopPropagation(); 
-                  if (window.confirm(`Remove connection with @${conn.username}? This will wipe your history.`)) {
+                  if (window.confirm(`Remove connection with ${conn.username}? This will wipe your history.`)) {
                     onRemoveConnection(conn.connectionId);
                   }
                 }}

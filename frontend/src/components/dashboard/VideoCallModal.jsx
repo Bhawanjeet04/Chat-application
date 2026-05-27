@@ -124,7 +124,7 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => {
         track.stop();
-        console.log(`🔒 Stopped track: ${track.kind}`);
+        console.log(` Stopped track: ${track.kind}`);
       });
       localStreamRef.current = null;
     }
@@ -157,18 +157,17 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
                 onClick={() => setIsCallAccepted(true)}
                 className="px-5 py-2 bg-green-600 hover:bg-green-700 font-bold rounded-xl text-xs tracking-wider text-white uppercase transition active:scale-95"
               >
-                Accept Call 👍
+                Accept Call
               </button>
               <button
                 onClick={handleEndCall}
                 className="px-5 py-2 bg-red-600 hover:bg-red-700 font-bold rounded-xl text-xs tracking-wider text-white uppercase transition active:scale-95"
               >
-                Decline ❌
+                Decline
               </button>
             </div>
           </div>
         ) : (
-          /* WhatsApp Style Overlay Layout */
           <>
             <div className="flex-1 bg-black min-h-[480px] relative overflow-hidden flex items-center justify-center">
               
@@ -204,7 +203,7 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
                 onClick={handleEndCall}
                 className="px-6 py-2.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-bold tracking-wider uppercase rounded-xl shadow-lg transition duration-150"
               >
-                End Call 📞
+                End Call
               </button>
             </div>
           </>

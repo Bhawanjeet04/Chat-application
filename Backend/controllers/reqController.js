@@ -144,7 +144,7 @@ exports.getAcceptedConnections = async (req, res) => {
         const connections = await Connection.find({
             status: 'accepted',
             $or: [{ sender: userId }, { recipient: userId }]
-        }).populate('sender recipient', 'username lastSeen'); // 💡 Added lastSeen to the populate target fields
+        }).populate('sender recipient', 'username lastSeen'); 
 
         const formattedList = connections.map(conn => {
             const targetUser = conn.sender._id.equals(userId) ? conn.recipient : conn.sender;
@@ -153,7 +153,7 @@ exports.getAcceptedConnections = async (req, res) => {
                 userId: targetUser._id,
                 username: targetUser.username,
                 preserveHistory: conn.preserveHistory,
-                lastSeen: targetUser.lastSeen // 💡 Passed down cleanly to the React app
+                lastSeen: targetUser.lastSeen 
             };
         });
 
@@ -168,13 +168,11 @@ exports.getSentRequests = async (req, res) => {
     try {
         const userId = req.user._id;
         
-        // Fetch outgoing pending requests
         const requests = await Connection.find({ 
             sender: userId, 
             status: 'pending' 
         }).populate('recipient', 'username');
 
-        // 💡 FIX: Structure the payload mapping to explicitly include the recipient profile metadata
         const formattedList = requests.map(reqItem => ({
             _id: reqItem._id,
             recipient: {

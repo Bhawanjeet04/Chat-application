@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
+import { GoArrowLeft } from "react-icons/go";
 
-export const ChatView = ({ selectedChatUser, messages, currentUserId, onSendMessage, triggerVideoCallNotice ,preserveHistory,onToggleHistory, isOnline, statusSubtext}) => {
+export const ChatView = ({ selectedChatUser, messages, currentUserId, onSendMessage, triggerVideoCallNotice ,preserveHistory,onToggleHistory, statusSubtext,onBack}) => {
   const [newMessage, setNewMessage] = useState('');
   const messageEndRef = useRef(null);
 
@@ -18,12 +19,10 @@ export const ChatView = ({ selectedChatUser, messages, currentUserId, onSendMess
   return (
     <div className="flex-1 flex flex-col h-full w-full">
       <div className="p-4 bg-[#141417] border-b border-[#26262b] flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-bold text-gray-200 tracking-wide">{selectedChatUser.username}</h2>
-          <span className={`text-[11px] font-medium tracking-wide ${isOnline ? 'text-green-500' : 'text-gray-400'}`}>
-        {isOnline ? '● Online' : `Last seen: ${statusSubtext}`}
-      </span>
-        </div>
+          <div className='flex gap-[20%]'>
+            <button onClick={onBack} className="text-gray-500 text-2xl hover:text-white transition"><GoArrowLeft /></button>
+            <h2 className="text-sm font-bold text-gray-200 tracking-wide">{selectedChatUser.username}</h2>
+          </div>
 <div className="flex items-center space-x-3">
           <button
             onClick={() => onToggleHistory(!preserveHistory)}
