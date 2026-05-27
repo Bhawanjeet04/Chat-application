@@ -2,11 +2,9 @@ import { useState, useEffect } from 'react';
 import { getSentRequestsAPI } from "../../services/api";
 import { GoArrowLeft } from "react-icons/go";
 
-
-export const SendRequestView = ({ username, onBack, onSendRequest}) => {
+export const SendRequestView = ({ username, onBack, onSendRequest, socket }) => {
   const [searchUsername, setSearchUsername] = useState('');
   const [sentRequests, setSentRequests] = useState([]);
-
 
   const fetchSentRequests = async () => {
     try {
@@ -20,6 +18,23 @@ export const SendRequestView = ({ username, onBack, onSendRequest}) => {
   useEffect(() => {
     fetchSentRequests();
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleConnectionAccepted = (data) => {
+      console.log("A sent connection request was accepted:", data);
+            setSentRequests((prevRequests) => 
+        prevRequests.filter((req) => req._id !== data.connectionId)
+      );
+    };
+
+    socket.on('connection_accepted', handleConnectionAccepted);
+
+    return () => {
+      socket.off('connection_accepted', handleConnectionAccepted);
+    };
+  }, [socket]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -59,7 +74,6 @@ export const SendRequestView = ({ username, onBack, onSendRequest}) => {
           </form>
         </div>
 
-        {/* Sent Requests tracking panel */}
         {sentRequests.length > 0 && (
           <div className="border-t border-[#26262b] pt-4">
             <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
@@ -71,7 +85,6 @@ export const SendRequestView = ({ username, onBack, onSendRequest}) => {
                   key={req._id} 
                   className="flex justify-between items-center bg-[#1a1a1f] p-3 rounded-lg border border-[#26262b]"
                 >
-                  {/* 💡 FIX: Drill into the recipient layout object parameters safely */}
                   <span className="text-sm font-medium text-gray-300">
                     {req.recipient?.username || 'Unknown User'}
                   </span>

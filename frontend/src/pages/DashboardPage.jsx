@@ -313,7 +313,7 @@ export const DashboardPage = () => {
   return (
     <div className="flex h-screen w-screen bg-[#121214] text-gray-200 overflow-hidden font-sans select-none antialiased">
       {statusText.msg && (
-        <div className={`absolute top-4 right-[-8%] -translate-x-1/2 px-4 py-2 rounded-md shadow-xl text-xs font-semibold z-50 border ${statusText.isError ? 'bg-red-950 border-red-800 text-red-200' : 'bg-blue-950 border-blue-800 text-blue-200'
+        <div className={`absolute top-4 right-[-5%] -translate-x-1/2 px-4 py-2 rounded-md shadow-xl text-xs font-semibold z-50 border ${statusText.isError ? 'bg-red-950 border-red-800 text-red-200' : 'bg-blue-950 border-blue-800 text-blue-200'
           }`}>
           {statusText.msg}
         </div>
@@ -360,6 +360,7 @@ export const DashboardPage = () => {
             onRefreshSentRequests={fetchSentRequests}
             onBack={() => setRightView('default')}
             onSendRequest={handleSendRequest}
+            socket= {socket}
           />
         )}
 

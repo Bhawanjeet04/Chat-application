@@ -19,6 +19,16 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
   useEffect(() => {
     if (!socket || !selectedChatUser) return;
 
+   socket.on('video_call_busy', (data) => {
+    alert(data.message);
+
+    cleanUpTracks();
+
+    if (typeof onClose === 'function') {
+      onClose();
+    }
+  });
+
     if (isCallAccepted) {
       initializeCall();
     } else {
@@ -51,6 +61,7 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
       socket.off('video_call_answer_received');
       socket.off('ice_candidate_received');
       socket.off('video_call_ended');
+      socket.off('video_call_busy');
       cleanUpTracks();
     };
   }, [socket, selectedChatUser, isCallAccepted]);

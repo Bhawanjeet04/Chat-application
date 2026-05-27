@@ -15,20 +15,17 @@ dotenv.config();
 const PORT = process.env.PORT || 5000;
 const app = express();
 
-// 💡 FIX 1: Cleaned up duplicates & placed CORS at the absolute top of the middleware stack
 app.use(cors({
     origin: process.env.CLIENT_URL || 'http://localhost:5173',
-    credentials: true // 💡 FIX 2: Changed "Credentials" to lowercase "credentials" to enable cookie passage!
+    credentials: true 
 }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Database Hook
 connectDB();
 
-// API Router Mappings
 app.use('/api/auth', authRoutes);
 app.use('/api/requests', reqRoutes);
 app.use('/api/chats', chatRoutes);
@@ -39,12 +36,11 @@ app.get('/', (req, res) => {
 
 const server = http.createServer(app);
 
-// Socket.io Real-time signaling layers Configuration
 const io = new Server(server, {
     cors: {
         origin: process.env.CLIENT_URL || 'http://localhost:5173',
         methods: ['GET', 'POST'],
-        credentials: true // 💡 BONUS FIX: Ensure your live WebSockets also accept credential syncs!
+        credentials: true 
     }
 });
 
@@ -53,6 +49,8 @@ server.listen(PORT, () => {
 });
 
 const onlineUsers = new Map();
+const inVideoCall = new Set();
+
 app.set('io', io);
 app.set('onlineUsers', onlineUsers);
 
@@ -81,17 +79,14 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', async() => {
     console.log(`A user disconnected: ${socket.id}`);
+    
+    if (socket.userId) inVideoCall.delete(socket.userId.toString());
+    if (socket.recipientId) inVideoCall.delete(socket.recipientId.toString());
+
     for (let [userId, socketId] of onlineUsers.entries()) {
       if (socketId === socket.id) {
-        try {
-          const User = require('./models/User'); // Import User model safely
-          await User.findByIdAndUpdate(userId, { lastSeen: new Date() });
-          console.log(`Saved lastSeen timestamp for user: ${userId}`);
-        } catch (err) {
-          console.error("Failed to save lastSeen timestamp:", err.message);
-        }
+        inVideoCall.delete(userId.toString());
         onlineUsers.delete(userId);
-        console.log(`Removed user ${userId} from online map.`);
         break;
       }
     }
@@ -108,11 +103,28 @@ io.on('connection', (socket) => {
   });
 
   socket.on('video_call_offer', (data) => {
-    const { recipientId, offer, connectionId } = data;
+    let { recipientId, offer, connectionId, senderId } = data;
+    const currentUserId = (socket.userId || senderId).toString();
+
+    recipientId = recipientId.toString();
+
+    
+    if (inVideoCall.has(currentUserId) || inVideoCall.has(recipientId)) {
+      socket.emit('video_call_busy', { 
+        message: "User is currently busy on another call." 
+      });
+      return;
+    }
+
     const recipientSocketId = onlineUsers.get(recipientId);
     if (recipientSocketId) {
+      inVideoCall.add(currentUserId);
+      inVideoCall.add(recipientId);
+      socket.userId = currentUserId;
+      socket.recipientId = recipientId;
+
       socket.to(recipientSocketId).emit('video_call_offer_received', {
-        senderId: socket.userId || data.senderId,
+        senderId: currentUserId,
         offer,
         connectionId
       });
@@ -128,6 +140,21 @@ io.on('connection', (socket) => {
       });
     }
   });
+
+  socket.on('end_video_call', (data) => {
+    const { recipientId, senderId } = data;
+    
+    if (senderId) inVideoCall.delete(senderId.toString());
+    if (recipientId) inVideoCall.delete(recipientId.toString());
+    if (socket.userId) inVideoCall.delete(socket.userId.toString());
+
+    const recipientSocketId = onlineUsers.get(recipientId);
+    if (recipientSocketId) {
+      socket.to(recipientSocketId).emit('video_call_ended');
+    }
+  });
+
+  
 
   socket.on('update_preserve_toggle', (data) => {
     const { recipientId, connectionId, preserveHistory } = data;
@@ -150,11 +177,4 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('end_video_call', (data) => {
-    const { recipientId } = data;
-    const recipientSocketId = onlineUsers.get(recipientId);
-    if (recipientSocketId) {
-      socket.to(recipientSocketId).emit('video_call_ended');
-    }
-  });
 });
