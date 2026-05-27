@@ -16,6 +16,8 @@ import { DefaultView } from '../components/dashboard/DefaultView';
 import { SendRequestView } from '../components/dashboard/SendRequestView';
 import { AcceptRequestsView } from '../components/dashboard/AcceptRequestsView';
 import { ChatView } from '../components/dashboard/ChatView';
+import { ChangePasswordView } from '../components/dashboard/ChangePasswordView';
+import { toast } from 'react-hot-toast';
 
 export const DashboardPage = () => {
   const { user, logout } = useContext(AuthContext);
@@ -123,7 +125,7 @@ export const DashboardPage = () => {
   }, [user]);
 
   useEffect(() => {
-    const newSocket = io('http://localhost:5000', { withCredentials: true });
+    const newSocket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000', { withCredentials: true });
     setSocket(newSocket);
 
     if (user) {
@@ -179,11 +181,12 @@ export const DashboardPage = () => {
       });
     });
 
-
-    newSocket.on('connection_removed', ({ connectionId }) => {
-      newSocket.on('get_online_users', (userIdsList) => {
+    newSocket.on('get_online_users', (userIdsList) => {
       setOnlineUserIds(userIdsList);
     });
+
+    newSocket.on('connection_removed', ({ connectionId }) => {
+      
       setActiveConnections((prev) => prev.filter((c) => c.connectionId !== connectionId));
       setSelectedChatUser((currentSelected) => {
         if (currentSelected?.connectionId === connectionId) {
@@ -199,6 +202,7 @@ export const DashboardPage = () => {
       newSocket.off('connection_accepted');
       newSocket.off('receive_message');
       newSocket.off('connection_removed');
+      newSocket.off('get_online_users');
       newSocket.disconnect();
     };
   }, [user, selectedChatUser]);
@@ -273,7 +277,8 @@ export const DashboardPage = () => {
     setMessages((prev) => [...prev, payload]);
 
     try {
-      await axios.post('http://localhost:5000/api/chats/message', {
+      const serverBase = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      await axios.post(`${serverBase}/api/chats/message`, {
         connectionId: selectedChatUser.connectionId,
         text: messageText
       }, { withCredentials: true }); 
@@ -285,7 +290,8 @@ export const DashboardPage = () => {
   const handleToggleHistory = async (newState) => {
     if (!selectedChatUser) return;
     try {
-      await axios.put(`http://localhost:5000/api/chats/toggle-preserve/${selectedChatUser.connectionId}`, {
+      const serverBase = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      await axios.put(`${serverBase}/api/chats/toggle-preserve/${selectedChatUser.connectionId}`, {
         preserveHistory: newState
       }, { withCredentials: true });
 
@@ -341,6 +347,7 @@ export const DashboardPage = () => {
         onSelectChat={handleSelectChat}
         onRemoveConnection={handleRemoveConnection} 
         onLogout={logout}
+        setRightView={setRightView}
       />
 
       <div className="flex-1 flex flex-col bg-[#0f0f11] relative">
@@ -373,7 +380,7 @@ export const DashboardPage = () => {
           />
         )}
 
-{rightView === 'chat' && selectedChatUser && (
+        {rightView === 'chat' && selectedChatUser && (
           <ChatView
             selectedChatUser={selectedChatUser}
             messages={messages}
@@ -388,7 +395,15 @@ export const DashboardPage = () => {
             onToggleHistory={handleToggleHistory}
             onBack={() => setRightView('default')}
             
+            isOnline={onlineUserIds.includes(selectedChatUser?._id?.toString())}
             statusSubtext={formatLastSeen(selectedChatUser.lastSeen)}
+          />
+        )}
+
+        {rightView === 'change_password' && (
+          <ChangePasswordView 
+            onBack={() => setRightView('default')}
+            triggerNotification={triggerNotification}
           />
         )}
       </div>

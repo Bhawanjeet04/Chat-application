@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const serverBase = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+
 const API = axios.create({
-    baseURL: 'http://localhost:5000/api',
+    baseURL: `${serverBase}/api`,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -15,7 +17,7 @@ export const sendRequestAPI = (targetUsername) => API.post('/requests/send', { t
 export const getPendingRequestsAPI = () => API.get('/requests/pending');
 
 export const respondToRequestAPI = (requestId, action) => API.put(`/requests/respond/${requestId}`, { action });
-
+export const changePasswordAPI = (passwordData) => API.put('/auth/change-password', passwordData);
 export const getChatHistoryAPI = (connectionId) => API.get(`/chats/${connectionId}`);
 export const getAcceptedConnectionsAPI = () => API.get('/requests/accepted');
 export const getSentRequestsAPI = () => API.get('/requests/sent');

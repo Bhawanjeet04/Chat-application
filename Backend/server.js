@@ -9,6 +9,7 @@ const cookieParser = require('cookie-parser');
 const authRoutes = require('./routes/authRoutes');
 const reqRoutes = require('./routes/reqRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const User = require('./models/User');
 
 dotenv.config();
 
@@ -87,6 +88,8 @@ io.on('connection', (socket) => {
       if (socketId === socket.id) {
         inVideoCall.delete(userId.toString());
         onlineUsers.delete(userId);
+
+        await User.findByIdAndUpdate(userId, { lastSeen: new Date() });
         break;
       }
     }

@@ -1,18 +1,20 @@
-import React from "react";
+import React from 'react';
 
 export const Input = ({ label, type = 'text', value, onChange, placeholder, required = true }) => {
   return (
-    <div className="flex flex-col space-y-1.5 w-full">
-      <label className="text-sm font-semibold text-gray-700 tracking-wide">
-        {label}
-      </label>
+    <div className="space-y-2 flex flex-col text-left">
+      {label && (
+        <label className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+          {label}
+        </label>
+      )}
       <input
         type={type}
         value={value}
         onChange={onChange}
         placeholder={placeholder}
         required={required}
-        className="w-full px-4 py-2.5 text-sm text-gray-900 bg-gray-50 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 placeholder-gray-400"
+        className="w-full px-4 py-2.5 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-xl text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-blue-500 transition-colors duration-200"
       />
     </div>
   );

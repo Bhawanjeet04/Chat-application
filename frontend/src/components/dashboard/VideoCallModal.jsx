@@ -19,15 +19,14 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
   useEffect(() => {
     if (!socket || !selectedChatUser) return;
 
-   socket.on('video_call_busy', (data) => {
-    alert(data.message);
-
-    cleanUpTracks();
-
-    if (typeof onClose === 'function') {
-      onClose();
-    }
-  });
+    socket.on('video_call_busy', (data) => {
+      alert(data.message);
+      cleanUpTracks();
+      
+      if (typeof onClose === 'function') {
+        onClose();
+      }
+    });
 
     if (isCallAccepted) {
       initializeCall();
@@ -148,12 +147,13 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4">
-      <div className="bg-[#18181c] border border-[#26262b] w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+
+      <div className="bg-[var(--bg-sidebar)] border border-[var(--border-color)] w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl flex flex-col transition-colors duration-200">
         
-        <div className="p-4 bg-[#1e1e24] border-b border-[#26262b] flex justify-between items-center">
+        <div className="p-4 bg-[var(--bg-header)] border-b border-[var(--border-color)] flex justify-between items-center transition-colors duration-200">
           <div>
-            <h3 className="text-sm font-bold text-gray-200">Video Session with @{selectedChatUser.username}</h3>
-            <p className="text-xs text-blue-400 mt-0.5">{callStatus}</p>
+            <h3 className="text-sm font-bold text-[var(--text-main)]">Video Session with @{selectedChatUser.username}</h3>
+            <p className="text-xs text-blue-500 font-medium mt-0.5">{callStatus}</p>
           </div>
         </div>
 
@@ -194,7 +194,7 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
                 </span>
               </div>
 
-              <div className="absolute top-4 right-4 w-36 h-48 sm:w-44 sm:h-56 bg-[#121214] rounded-xl overflow-hidden shadow-2xl border border-white/10 z-10 transition-all duration-300 hover:scale-105">
+              <div className="absolute top-4 right-4 w-36 h-48 sm:w-44 sm:h-56 bg-[var(--bg-main)] rounded-xl overflow-hidden shadow-2xl border border-white/10 z-10 transition-all duration-300 hover:scale-105">
                 <video 
                   ref={localVideoRef} 
                   autoPlay 
@@ -209,7 +209,7 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
 
             </div>
 
-            <div className="p-4 bg-[#141417] border-t border-[#26262b] flex justify-center">
+            <div className="p-4 bg-[var(--bg-card)] border-t border-[var(--border-color)] flex justify-center transition-colors duration-200">
               <button
                 onClick={handleEndCall}
                 className="px-6 py-2.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-bold tracking-wider uppercase rounded-xl shadow-lg transition duration-150"

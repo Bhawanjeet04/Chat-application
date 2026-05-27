@@ -1,1 +1,39 @@
 @import "tailwindcss";
+
+/* 🌙 Dark Theme Core Defaults (Your Existing Palette) */
+:root, .dark {
+  --bg-main: #121214;
+  --bg-panel: #0f0f11;
+  --bg-sidebar: #18181c;
+  --bg-header: #1e1e24;
+  --bg-input: #1e1e24;
+  --bg-card: #141417;
+  --bg-bubble-self: #2563eb;
+  --bg-bubble-other: #22222a;
+  
+  --text-main: #e5e7eb;
+  --text-muted: #9ca3af;
+  --border-color: #26262b;
+}
+
+/* ☀️ Light Theme Palette Extensions */
+.light {
+  --bg-main: #f3f4f6;
+  --bg-panel: #ffffff;
+  --bg-sidebar: #f9fafb;
+  --bg-header: #f3f4f6;
+  --bg-input: #ffffff;
+  --bg-card: #ffffff;
+  --bg-bubble-self: #3b82f6;
+  --bg-bubble-other: #e5e7eb;
+  
+  --text-main: #1f2937;
+  --text-muted: #4b5563;
+  --border-color: #e5e7eb;
+}
+
+body {
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
