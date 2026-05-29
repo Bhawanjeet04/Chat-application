@@ -7,9 +7,10 @@ import {
   respondToRequestAPI,
   getChatHistoryAPI,
   getAcceptedConnectionsAPI,
-  removeConnectionAPI
+  removeConnectionAPI,
+  getSentRequestsAPI
 } from '../services/api';
-import axios from 'axios'; 
+import axios from 'axios';
 import { VideoCallModal } from '../components/dashboard/VideoCallModal';
 import { Sidebar } from '../components/dashboard/Sidebar';
 import { DefaultView } from '../components/dashboard/DefaultView';
@@ -22,7 +23,7 @@ import { toast } from 'react-hot-toast';
 export const DashboardPage = () => {
   const { user, logout } = useContext(AuthContext);
   const [socket, setSocket] = useState(null);
-  const [rightView, setRightView] = useState('default'); 
+  const [rightView, setRightView] = useState('default');
   const [sentRequests, setSentRequests] = useState([]);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [isIncomingCall, setIsIncomingCall] = useState(false);
@@ -30,10 +31,10 @@ export const DashboardPage = () => {
   const [preserveHistory, setPreserveHistory] = useState(false);
   const [onlineUserIds, setOnlineUserIds] = useState([]);
   const [messages, setMessages] = useState([]);
-  const [statusText, setStatusText] = useState({ msg: '', isError: false });
   const [pendingInvites, setPendingInvites] = useState([]);
   const [activeConnections, setActiveConnections] = useState([]);
   const [selectedChatUser, setSelectedChatUser] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const fetchSidebarConnections = async () => {
     try {
@@ -50,29 +51,28 @@ export const DashboardPage = () => {
       setActiveConnections((prev) => prev.filter((c) => c.connectionId !== connectionId));
       if (selectedChatUser?.connectionId === connectionId) {
         setSelectedChatUser(null);
+        setRightView('default');
       }
+      toast.success('Connection removed.');
     } catch (err) {
       console.error("Removal failure:", err);
-      alert(err.response?.data?.message || "Failed to remove this connection.");
+      toast.error(err.response?.data?.message || "Failed to remove this connection.");
     }
   };
 
   const formatLastSeen = (dateString) => {
-  if (!dateString) return 'Offline';
-  
-  const now = new Date();
-  const past = new Date(dateString);
-  const diffInMs = now - past;
-  
-  const mins = Math.floor(diffInMs / 1000 / 60);
-  const hours = Math.floor(mins / 60);
-  const days = Math.floor(hours / 24);
-
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  return `${days}d ago`;
-};
+    if (!dateString) return 'Offline';
+    const now = new Date();
+    const past = new Date(dateString);
+    const diffInMs = now - past;
+    const mins = Math.floor(diffInMs / 1000 / 60);
+    const hours = Math.floor(mins / 60);
+    const days = Math.floor(hours / 24);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    return `${days}d ago`;
+  };
 
   const fetchInvites = async () => {
     try {
@@ -84,22 +84,19 @@ export const DashboardPage = () => {
   };
 
   const fetchSentRequests = async () => {
-  try {
-    const res = await getSentRequestsAPI();
-    setSentRequests(res.data);
-  } catch (err) {
-    console.error("Failed loading sent requests tracking:", err);
-  }
-};
-
-
+    try {
+      const res = await getSentRequestsAPI();
+      setSentRequests(res.data);
+    } catch (err) {
+      console.error("Failed loading sent requests tracking:", err);
+    }
+  };
 
   useEffect(() => {
     if (!socket) return;
 
     socket.on('video_call_offer_received', (data) => {
       const isValidFriend = activeConnections.some(conn => conn.userId === data.senderId);
-      
       if (isValidFriend) {
         const companion = activeConnections.find(conn => conn.userId === data.senderId);
         setSelectedChatUser({
@@ -110,6 +107,7 @@ export const DashboardPage = () => {
         setActiveIncomingOffer(data.offer);
         setIsIncomingCall(true);
         setShowVideoModal(true);
+        toast(`Incoming call from @${companion.username}`, { duration: 4000, icon: '📞' });
       }
     });
 
@@ -125,7 +123,7 @@ export const DashboardPage = () => {
   }, [user]);
 
   useEffect(() => {
-    const newSocket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000', { withCredentials: true });
+    const newSocket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000');
     setSocket(newSocket);
 
     if (user) {
@@ -133,19 +131,17 @@ export const DashboardPage = () => {
     }
 
     newSocket.on('new_connection_request', (data) => {
-      triggerNotification(data.message, false);
+      toast(data.message || 'New invite request received!', { icon: '🔔' });
       fetchInvites();
     });
-
 
     newSocket.on('preserve_toggle_updated', (data) => {
       if (selectedChatUser && selectedChatUser.connectionId === data.connectionId) {
         setPreserveHistory(data.preserveHistory);
       }
-      
-      setActiveConnections(prev => prev.map(conn => 
-        conn.connectionId === data.connectionId 
-          ? { ...conn, preserveHistory: data.preserveHistory } 
+      setActiveConnections(prev => prev.map(conn =>
+        conn.connectionId === data.connectionId
+          ? { ...conn, preserveHistory: data.preserveHistory }
           : conn
       ));
     });
@@ -156,25 +152,20 @@ export const DashboardPage = () => {
         return [...prev, newFriend];
       });
       fetchSentRequests();
-      triggerNotification(`You are now connected with @${newFriend.username}!`, false);
+      toast.success(`You are now connected with @${newFriend.username}!`);
     });
 
     newSocket.on('receive_message', (msgPayload) => {
       setSelectedChatUser((currentSelected) => {
         if (currentSelected && msgPayload.connectionId === currentSelected.connectionId) {
-          
           setMessages((prev) => {
             const isAlreadyRendered = prev.some(
-              (msg) => msg.text === msgPayload.text && 
-                       msg.sender === msgPayload.sender &&
-                       Math.abs(new Date(msg.createdAt) - new Date(msgPayload.createdAt)) < 2000 
+              (msg) => msg.text === msgPayload.text &&
+                msg.sender === msgPayload.sender &&
+                Math.abs(new Date(msg.createdAt) - new Date(msgPayload.createdAt)) < 2000
             );
-
-            if (isAlreadyRendered) {
-              return prev;
-            }
-            
-            return [...prev, msgPayload]; 
+            if (isAlreadyRendered) return prev;
+            return [...prev, msgPayload];
           });
         }
         return currentSelected;
@@ -186,11 +177,11 @@ export const DashboardPage = () => {
     });
 
     newSocket.on('connection_removed', ({ connectionId }) => {
-      
       setActiveConnections((prev) => prev.filter((c) => c.connectionId !== connectionId));
       setSelectedChatUser((currentSelected) => {
         if (currentSelected?.connectionId === connectionId) {
           setRightView('default');
+          toast('Connection removed.', { icon: '⚠️' });
           return null;
         }
         return currentSelected;
@@ -207,18 +198,10 @@ export const DashboardPage = () => {
     };
   }, [user, selectedChatUser]);
 
-  
-
-  const triggerNotification = (msg, isError = false) => {
-    setStatusText({ msg, isError });
-    setTimeout(() => setStatusText({ msg: '', isError: false }), 4000);
-  };
-
   const handleSendRequest = async (targetUsername, successCallback) => {
     try {
       const res = await sendRequestAPI(targetUsername);
-      triggerNotification(res.data.message, false);
-
+      toast.success(res.data.message || 'Invitation request sent successfully!');
       if (socket && res.data.connection) {
         socket.emit('send_connection_request', {
           senderUsername: user.username,
@@ -227,25 +210,22 @@ export const DashboardPage = () => {
       }
       successCallback();
     } catch (err) {
-      triggerNotification(err.response?.data?.message || "User not found", true);
+      toast.error(err.response?.data?.message || "User not found");
     }
   };
 
   const handleRespondToInvite = async (requestId, action) => {
     try {
       await respondToRequestAPI(requestId, action);
-      triggerNotification(`Request ${action} successfully!`, false);
-
-      setPendingInvites((prevInvites) => 
+      toast.success(`Request ${action} successfully!`);
+      setPendingInvites((prevInvites) =>
         prevInvites.filter((invite) => invite._id !== requestId)
       );
-
       if (action === 'accepted') {
-        fetchSidebarConnections(); 
+        fetchSidebarConnections();
       }
-    } 
-    catch (err) {
-      triggerNotification("Failed executing response action", true);
+    } catch (err) {
+      toast.error("Failed executing response action");
     }
   };
 
@@ -253,7 +233,8 @@ export const DashboardPage = () => {
     setSelectedChatUser({ _id: conn.userId, userId: conn.userId, username: conn.username, connectionId: conn.connectionId, lastSeen: conn.lastSeen });
     setPreserveHistory(conn.preserveHistory || false);
     setRightView('chat');
-    
+    setSidebarOpen(false);
+
     try {
       const res = await getChatHistoryAPI(conn.connectionId);
       setMessages(res.data);
@@ -264,7 +245,6 @@ export const DashboardPage = () => {
 
   const handleSendMessage = async (messageText) => {
     if (!selectedChatUser) return;
-
     const payload = {
       connectionId: selectedChatUser.connectionId,
       recipientId: selectedChatUser._id,
@@ -272,18 +252,16 @@ export const DashboardPage = () => {
       text: messageText,
       createdAt: new Date()
     };
-
     socket.emit('send_message', payload);
     setMessages((prev) => [...prev, payload]);
-
     try {
       const serverBase = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
       await axios.post(`${serverBase}/api/chats/message`, {
         connectionId: selectedChatUser.connectionId,
         text: messageText
-      }, { withCredentials: true }); 
+      }, { withCredentials: true });
     } catch (err) {
-      console.error("Message backup pipeline failed processing:", err.response?.data || err.message);
+      console.error("Message backup failed processing:", err.response?.data || err.message);
     }
   };
 
@@ -296,37 +274,33 @@ export const DashboardPage = () => {
       }, { withCredentials: true });
 
       setPreserveHistory(newState);
-
-      setActiveConnections(prev => prev.map(conn => 
-        conn.connectionId === selectedChatUser.connectionId 
-          ? { ...conn, preserveHistory: newState } 
+      setActiveConnections(prev => prev.map(conn =>
+        conn.connectionId === selectedChatUser.connectionId
+          ? { ...conn, preserveHistory: newState }
           : conn
       ));
-
       socket.emit('update_preserve_toggle', {
         recipientId: selectedChatUser._id,
         connectionId: selectedChatUser.connectionId,
         preserveHistory: newState
       });
-
-      triggerNotification(`Chat history retention turned ${newState ? 'ON' : 'OFF'}.`, false);
+      toast.success(`Chat history retention turned ${newState ? 'ON' : 'OFF'}.`);
     } catch (err) {
       console.error("Toggle error:", err.response?.data || err.message);
-      triggerNotification("Failed to update privacy configuration context state.", true);
+      toast.error("Failed to update privacy configuration.");
     }
   };
 
+  const handleChatBack = () => {
+    setRightView('default');
+    setSidebarOpen(true);
+  };
+
   return (
-    <div className="flex h-screen w-screen bg-[#121214] text-gray-200 overflow-hidden font-sans select-none antialiased">
-      {statusText.msg && (
-        <div className={`absolute top-4 right-[-5%] -translate-x-1/2 px-4 py-2 rounded-md shadow-xl text-xs font-semibold z-50 border ${statusText.isError ? 'bg-red-950 border-red-800 text-red-200' : 'bg-blue-950 border-blue-800 text-blue-200'
-          }`}>
-          {statusText.msg}
-        </div>
-      )}
+    <div className="flex h-screen w-screen bg-[var(--bg-main)] text-[var(--text-main)] overflow-hidden font-sans select-none antialiased transition-colors duration-200">
 
       {showVideoModal && selectedChatUser && (
-        <VideoCallModal 
+        <VideoCallModal
           socket={socket}
           selectedChatUser={selectedChatUser}
           currentUserId={user?.id}
@@ -340,17 +314,57 @@ export const DashboardPage = () => {
         />
       )}
 
-      <Sidebar 
-        user={user}
-        activeConnections={activeConnections}
-        selectedChatUser={selectedChatUser}
-        onSelectChat={handleSelectChat}
-        onRemoveConnection={handleRemoveConnection} 
-        onLogout={logout}
-        setRightView={setRightView}
-      />
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-      <div className="flex-1 flex flex-col bg-[#0f0f11] relative">
+      <div className={`
+        fixed md:relative z-40 md:z-auto
+        h-full
+        transform transition-transform duration-300 ease-in-out
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        md:translate-x-0
+      `}>
+        <Sidebar
+          user={user}
+          activeConnections={activeConnections}
+          selectedChatUser={selectedChatUser}
+          onSelectChat={handleSelectChat}
+          onRemoveConnection={handleRemoveConnection}
+          onLogout={logout}
+          setRightView={(view) => {
+            setRightView(view);
+            setSidebarOpen(false);
+          }}
+        />
+      </div>
+
+      <div className="flex-1 flex flex-col bg-[var(--bg-panel)] relative min-w-0 transition-colors duration-200">
+
+        {/* 💡 FIX: This mobile bar now automatically hides its title layout completely when rightView is set to 'chat' */}
+        <div className={`flex items-center md:hidden px-4 py-3 bg-[var(--bg-header)] border-b border-[var(--border-color)] shrink-0 transition-colors duration-200 ${
+          rightView === 'chat' ? 'hidden' : ''
+        }`}>
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 rounded-lg text-gray-400 hover:text-[var(--text-main)] hover:bg-[var(--bg-main)] border border-transparent hover:border-[var(--border-color)] transition mr-3 cursor-pointer"
+            aria-label="Open menu"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <span className="text-sm font-semibold tracking-wide text-[var(--text-main)]">
+            {rightView === 'send_request' ? 'Send Request'
+              : rightView === 'accept_requests' ? 'Accept Requests'
+              : rightView === 'change_password' ? 'Change Password'
+              : 'ChatApp'}
+          </span>
+        </div>
+
         {rightView === 'default' && (
           <DefaultView
             username={user?.username}
@@ -367,7 +381,7 @@ export const DashboardPage = () => {
             onRefreshSentRequests={fetchSentRequests}
             onBack={() => setRightView('default')}
             onSendRequest={handleSendRequest}
-            socket= {socket}
+            socket={socket}
           />
         )}
 
@@ -393,17 +407,15 @@ export const DashboardPage = () => {
             }}
             preserveHistory={preserveHistory}
             onToggleHistory={handleToggleHistory}
-            onBack={() => setRightView('default')}
-            
-            isOnline={onlineUserIds.includes(selectedChatUser?._id?.toString())}
+            onBack={handleChatBack}
+            isOnline={onlineUserIds.includes(selectedChatUser?._id?.toString()) || onlineUserIds.includes(selectedChatUser?.userId?.toString())}
             statusSubtext={formatLastSeen(selectedChatUser.lastSeen)}
           />
         )}
 
         {rightView === 'change_password' && (
-          <ChangePasswordView 
+          <ChangePasswordView
             onBack={() => setRightView('default')}
-            triggerNotification={triggerNotification}
           />
         )}
       </div>

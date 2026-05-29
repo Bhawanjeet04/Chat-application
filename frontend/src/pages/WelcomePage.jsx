@@ -31,13 +31,20 @@ export const WelcomePage = () => {
 
       <div className="w-full max-w-md p-8 space-y-6 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl shadow-xl transition-colors duration-200">
         
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-extrabold text-[var(--text-main)] tracking-tight">
-            ChatApp
-          </h1>
-          <p className="text-sm text-[var(--text-muted)]">
-            {authMode === 'register' ? 'Create an account to start chatting' : 'Connect instantly with real-time conversations'}
-          </p>
+        <div className="text-center space-y-3 flex flex-col items-center">
+          <img 
+            src="/chatlogo.svg" 
+            alt="ChatApp Logo" 
+            className="h-16 w-16 drop-shadow-md select-none pointer-events-none"
+          />
+          <div className="space-y-1">
+            <h1 className="text-3xl font-extrabold text-[var(--text-main)] tracking-tight">
+              ChatApp
+            </h1>
+            <p className="text-sm text-[var(--text-muted)]">
+              {authMode === 'register' ? 'Create an account to start chatting' : 'Connect instantly with real-time conversations'}
+            </p>
+          </div>
         </div>
 
         {error && (

@@ -5,7 +5,7 @@ import { toast } from 'react-hot-toast';
 export const Sidebar = ({ user, activeConnections, selectedChatUser, onSelectChat, onRemoveConnection, onLogout, setRightView }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
-  const { theme, toggleTheme } = useContext(ThemeContext); 
+  const { theme, toggleTheme } = useContext(ThemeContext);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -52,26 +52,25 @@ export const Sidebar = ({ user, activeConnections, selectedChatUser, onSelectCha
       duration: 8000,
       position: 'top-center',
       style: {
-        minWidth: '360px',
-        maxWidth: '450px',
+        minWidth: '300px',
+        maxWidth: '420px',
         padding: '16px',
       }
     });
   };
 
   return (
-    <div className="w-80 bg-[var(--bg-sidebar)] border-r border-[var(--border-color)] flex flex-col h-full select-none transition-colors duration-200">
+    <div className="w-72 md:w-80 bg-[var(--bg-sidebar)] border-r border-[var(--border-color)] flex flex-col h-full select-none transition-colors duration-200">
 
-      <div className="p-4.5 border-b border-[var(--border-color)] flex items-center justify-between bg-[var(--bg-header)] relative transition-colors duration-200">
-        <div className="flex items-center space-x-2">
-          <div className="h-3 w-3 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-sm font-semibold tracking-wide truncate max-w-[140px] text-[var(--text-main)]">
+      <div className="px-4 py-3.5 border-b border-[var(--border-color)] flex items-center justify-between bg-[var(--bg-header)] relative transition-colors duration-200 shrink-0">
+        <div className="flex items-center space-x-2 min-w-0">
+          <div className="h-3 w-3 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+          <span className="text-sm font-semibold tracking-wide truncate text-[var(--text-main)]">
             @{user?.username}
           </span>
         </div>
 
-        <div className="flex items-center space-x-1.5">
-          
+        <div className="flex items-center space-x-1.5 shrink-0">
           <button
             onClick={handleThemeToggleClick}
             className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-[var(--bg-main)] border border-transparent hover:border-[var(--border-color)] transition duration-200 focus:outline-none flex items-center justify-center cursor-pointer"
@@ -89,7 +88,7 @@ export const Sidebar = ({ user, activeConnections, selectedChatUser, onSelectCha
           </button>
 
           <div className="relative" ref={dropdownRef}>
-            <button 
+            <button
               onClick={() => setShowDropdown(!showDropdown)}
               className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-[var(--bg-main)] border border-transparent hover:border-[var(--border-color)] transition duration-200 focus:outline-none cursor-pointer"
               title="Options"
@@ -113,9 +112,9 @@ export const Sidebar = ({ user, activeConnections, selectedChatUser, onSelectCha
                   </svg>
                   <span>Change Password</span>
                 </button>
-                
+
                 <div className="border-t border-[var(--border-color)] my-1" />
-                
+
                 <button
                   onClick={() => {
                     setShowDropdown(false);
@@ -132,11 +131,10 @@ export const Sidebar = ({ user, activeConnections, selectedChatUser, onSelectCha
               </div>
             )}
           </div>
-
         </div>
       </div>
 
-      <div className="p-3 bg-[var(--bg-card)] text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-[var(--border-color)] transition-colors duration-200">
+      <div className="px-3 py-2.5 bg-[var(--bg-card)] text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-[var(--border-color)] transition-colors duration-200 shrink-0">
         Active Connections
       </div>
 
@@ -162,10 +160,10 @@ export const Sidebar = ({ user, activeConnections, selectedChatUser, onSelectCha
 
               <button
                 onClick={(e) => {
-                  e.stopPropagation(); 
+                  e.stopPropagation();
                   triggerRemoveConfirmation(conn);
                 }}
-                className="p-2 text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity rounded-md hover:bg-[var(--bg-main)] cursor-pointer"
+                className="p-2 text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity rounded-md hover:bg-[var(--bg-main)] cursor-pointer shrink-0"
                 title="Remove Connection"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
