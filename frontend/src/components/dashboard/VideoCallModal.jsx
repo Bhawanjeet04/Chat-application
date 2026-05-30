@@ -9,10 +9,13 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
   const peerConnectionRef = useRef(null);
   const localStreamRef = useRef(null);
 
+  // ✅ Production Update: Added additional fallback STUN servers to bypass strict firewalls
   const rtcConfig = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' }
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' }
     ]
   };
 
@@ -22,7 +25,6 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
     socket.on('video_call_busy', (data) => {
       alert(data.message);
       cleanUpTracks();
-      
       if (typeof onClose === 'function') {
         onClose();
       }
@@ -36,13 +38,18 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
 
     socket.on('video_call_answer_received', async (data) => {
       if (peerConnectionRef.current) {
-        await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.answer));
-        setCallStatus('Connected Live');
+        try {
+          await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.answer));
+          setCallStatus('Connected Live');
+        } catch (err) {
+          console.error("Error setting remote description answer", err);
+        }
       }
     });
 
     socket.on('ice_candidate_received', async (data) => {
-      if (peerConnectionRef.current && data.candidate) {
+      // ✅ Production Update: Guard against early candidates arriving before remote description is initialized
+      if (peerConnectionRef.current && peerConnectionRef.current.remoteDescription && data.candidate) {
         try {
           await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
         } catch (e) {
@@ -93,6 +100,7 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
       };
 
       if (isIncomingCall && incomingOffer) {
+        // ✅ Production Update: Ensured step-by-step description assignment completes fully before emitting answer back
         await pc.setRemoteDescription(new RTCSessionDescription(incomingOffer));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
@@ -134,7 +142,6 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => {
         track.stop();
-        console.log(` Stopped track: ${track.kind}`);
       });
       localStreamRef.current = null;
     }
@@ -147,7 +154,6 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4">
-
       <div className="bg-[var(--bg-sidebar)] border border-[var(--border-color)] w-full max-w-4xl rounded-2xl overflow-hidden shadow-2xl flex flex-col transition-colors duration-200">
         
         <div className="p-4 bg-[var(--bg-header)] border-b border-[var(--border-color)] flex justify-between items-center transition-colors duration-200">
@@ -166,13 +172,13 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
             <div className="flex space-x-4">
               <button
                 onClick={() => setIsCallAccepted(true)}
-                className="px-5 py-2 bg-green-600 hover:bg-green-700 font-bold rounded-xl text-xs tracking-wider text-white uppercase transition active:scale-95"
+                className="px-5 py-2 bg-green-600 hover:bg-green-700 font-bold rounded-xl text-xs tracking-wider text-white uppercase transition active:scale-95 cursor-pointer"
               >
                 Accept Call
               </button>
               <button
                 onClick={handleEndCall}
-                className="px-5 py-2 bg-red-600 hover:bg-red-700 font-bold rounded-xl text-xs tracking-wider text-white uppercase transition active:scale-95"
+                className="px-5 py-2 bg-red-600 hover:bg-red-700 font-bold rounded-xl text-xs tracking-wider text-white uppercase transition active:scale-95 cursor-pointer"
               >
                 Decline
               </button>
@@ -212,7 +218,7 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
             <div className="p-4 bg-[var(--bg-card)] border-t border-[var(--border-color)] flex justify-center transition-colors duration-200">
               <button
                 onClick={handleEndCall}
-                className="px-6 py-2.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-bold tracking-wider uppercase rounded-xl shadow-lg transition duration-150"
+                className="px-6 py-2.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs font-bold tracking-wider uppercase rounded-xl shadow-lg transition duration-150 cursor-pointer"
               >
                 End Call
               </button>
