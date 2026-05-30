@@ -4,7 +4,7 @@ import { GoArrowLeft } from "react-icons/go";
 export const AcceptRequestsView = ({ username, pendingInvites, onBack, onRespond }) => {
   return (
     <div className="flex-1 flex flex-col p-6 bg-[var(--bg-panel)] transition-colors duration-200">
-      <div className="flex items-center space-x-4 mb-6 border-b border-[var(--border-color)] pb-4 pl-3 gap-[40%] transition-colors">
+      <div className="flex items-center space-x-4 mb-6 border-b border-[var(--border-color)] pb-4 pl-3 gap-[5%] transition-colors">
         <button onClick={onBack} className="text-gray-500 text-2xl hover:text-[var(--text-main)] transition">
           <GoArrowLeft />
         </button>
