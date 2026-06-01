@@ -22,5 +22,6 @@ export const getChatHistoryAPI = (connectionId) => API.get(`/chats/${connectionI
 export const getAcceptedConnectionsAPI = () => API.get('/requests/accepted');
 export const getSentRequestsAPI = () => API.get('/requests/sent');
 export const removeConnectionAPI = (connectionId) => API.delete(`/chats/${connectionId}`);
+export const deleteAccountAPI = () => API.delete('/auth/delete-account');
 
 export default API;

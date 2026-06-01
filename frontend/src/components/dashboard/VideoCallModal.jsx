@@ -8,8 +8,8 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
   const remoteVideoRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const localStreamRef = useRef(null);
+  const iceCandidatesQueueRef = useRef([]); // ✅ Added queue to process candidates arriving early
 
-  // ✅ Production Update: Added additional fallback STUN servers to bypass strict firewalls
   const rtcConfig = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
@@ -19,28 +19,22 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
     ]
   };
 
+  // ✅ Step 1: Manage Socket Signal Receivers in a stable, isolated Hook layout
   useEffect(() => {
     if (!socket || !selectedChatUser) return;
 
     socket.on('video_call_busy', (data) => {
       alert(data.message);
       cleanUpTracks();
-      if (typeof onClose === 'function') {
-        onClose();
-      }
+      if (typeof onClose === 'function') onClose();
     });
-
-    if (isCallAccepted) {
-      initializeCall();
-    } else {
-      setCallStatus(`Incoming call from @${selectedChatUser.username}...`);
-    }
 
     socket.on('video_call_answer_received', async (data) => {
       if (peerConnectionRef.current) {
         try {
           await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.answer));
           setCallStatus('Connected Live');
+          processIceQueue(); // ✅ Flush any early candidates waiting for remote configuration
         } catch (err) {
           console.error("Error setting remote description answer", err);
         }
@@ -48,13 +42,18 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
     });
 
     socket.on('ice_candidate_received', async (data) => {
-      // ✅ Production Update: Guard against early candidates arriving before remote description is initialized
-      if (peerConnectionRef.current && peerConnectionRef.current.remoteDescription && data.candidate) {
+      if (!data.candidate) return;
+      
+      const pc = peerConnectionRef.current;
+      // ✅ Production Guard: If remote state isn't ready yet, queue the candidate safely
+      if (pc && pc.remoteDescription) {
         try {
-          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
+          await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
         } catch (e) {
-          console.error("Error adding received ICE candidate", e);
+          console.error("Error adding immediate ICE candidate", e);
         }
+      } else {
+        iceCandidatesQueueRef.current.push(data.candidate);
       }
     });
 
@@ -68,25 +67,54 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
       socket.off('ice_candidate_received');
       socket.off('video_call_ended');
       socket.off('video_call_busy');
-      cleanUpTracks();
     };
-  }, [socket, selectedChatUser, isCallAccepted]);
+  }, [socket, selectedChatUser]);
+
+  // ✅ Step 2: Handle Independent Call Initialization Loop
+  useEffect(() => {
+    if (isCallAccepted) {
+      initializeCall();
+    } else {
+      setCallStatus(`Incoming call from @${selectedChatUser.username}...`);
+    }
+    
+    return () => cleanUpTracks();
+  }, [isCallAccepted]);
+
+  // ✅ Helper to empty staging ICE candidates once session properties load
+  const processIceQueue = async () => {
+    const pc = peerConnectionRef.current;
+    if (!pc || !pc.remoteDescription) return;
+
+    while (iceCandidatesQueueRef.current.length > 0) {
+      const candidate = iceCandidatesQueueRef.current.shift();
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (e) {
+        console.error("Error processing queued ICE candidate", e);
+      }
+    }
+  };
 
   const initializeCall = async () => {
     try {
+      // 1. Warm up camera and mic media channels before initializing WebRTC engine
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       localStreamRef.current = stream;
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
+      // 2. Initialize connection engine now that hardware tracks are available
       const pc = new RTCPeerConnection(rtcConfig);
       peerConnectionRef.current = pc;
 
+      // 3. Bind active hardware feeds onto signaling channel
       stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
       pc.ontrack = (event) => {
         if (remoteVideoRef.current && event.streams[0]) {
           remoteVideoRef.current.srcObject = event.streams[0];
           setCallStatus('Connected Live');
+          
         }
       };
 
@@ -99,8 +127,8 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
         }
       };
 
+      // 4. Perform step-by-step handshake logic securely
       if (isIncomingCall && incomingOffer) {
-        // ✅ Production Update: Ensured step-by-step description assignment completes fully before emitting answer back
         await pc.setRemoteDescription(new RTCSessionDescription(incomingOffer));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
@@ -110,6 +138,7 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
           answer
         });
         setCallStatus('Connected Live');
+        await processIceQueue(); // Flush candidates if offer processing completed
       } else {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
@@ -140,9 +169,7 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
 
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => {
-        track.stop();
-      });
+      localStreamRef.current.getTracks().forEach(track => track.stop());
       localStreamRef.current = null;
     }
 
@@ -150,6 +177,7 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
     }
+    iceCandidatesQueueRef.current = [];
   };
 
   return (
@@ -227,6 +255,6 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
         )}
 
       </div>
-    </div>
+    </div>  
   );
 };

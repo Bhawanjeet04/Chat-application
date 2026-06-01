@@ -13,12 +13,15 @@ const registerUser = async (req, res) => {
             return res.status(400).json({ message: "please provide all fields" });
         }
 
-        const userexists = await User.findOne({ username: username.toLowerCase().trim() });
+        const sanitizedUsername = username.toLowerCase().trim();
+
+        const userexists = await User.findOne({ username: sanitizedUsername });
         if (userexists) {
             return res.status(400).json({ message: "Username is already taken" });
         }
 
-        const user = await User.create({ username, password });
+        // ✅ Save it explicitly lowercased to match all future query tokens
+        const user = await User.create({ username: sanitizedUsername, password });
 
         if (user) {
             const token = generateToken(user._id);
@@ -30,15 +33,15 @@ const registerUser = async (req, res) => {
                 maxAge: 30 * 24 * 60 * 60 * 1000 
             });
 
-            res.status(201).json({
+            return res.status(201).json({
                 _id: user._id,
                 username: user.username
             });
         } else {
-            res.status(400).json({ message: "Invalid user data received" });
+            return res.status(400).json({ message: "Invalid user data received" });
         }
     } catch (err) {
-        res.status(500).json({ message: "Server Error", error: err.message });
+        return res.status(500).json({ message: "Server Error", error: err.message });
     }
 }
 
@@ -46,7 +49,8 @@ const loginUser = async (req, res) => {
     try {
         const { username, password } = req.body;
 
-        const user = await User.findOne({ username: username.toLowerCase().trim() });
+        const sanitizedUsername = username.toLowerCase().trim();
+        const user = await User.findOne({ username: sanitizedUsername });
 
         if (user && (await user.matchPassword(password))) {
             const token = generateToken(user._id);
@@ -58,15 +62,15 @@ const loginUser = async (req, res) => {
                 maxAge: 30 * 24 * 60 * 60 * 1000
             });
 
-            res.json({
+            return res.json({
                 _id: user._id,
                 username: user.username
             });
         } else {
-            res.status(400).json({ message: "Invalid Username or password" });
+            return res.status(400).json({ message: "Invalid Username or password" });
         }
     } catch (err) {
-        res.status(500).json({ message: "Server Error", error: err.message });
+        return res.status(500).json({ message: "Server Error", error: err.message });
     }
 }
 
@@ -92,11 +96,30 @@ const changePassword = async (req, res) => {
         user.password = newPassword;
         await user.save();
 
-        res.status(200).json({ message: 'Password updated successfully!' });
+        return res.status(200).json({ message: 'Password updated successfully!' });
     } catch (error) {
-        res.status(500).json({ message: 'Server Error', error: error.message });
+        return res.status(500).json({ message: 'Server Error', error: error.message });
     }
 };
 
+const deleteAccount = async (req, res) => {
+    try {
+        const userId = req.user._id; 
 
-module.exports = { registerUser, loginUser, changePassword};
+        const user = await User.findByIdAndDelete(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User account not found.' });
+        }
+        res.clearCookie('token', {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'None'
+        });
+
+        return res.status(200).json({ message: 'Your account has been permanently deleted.' });
+    } catch (error) {
+        return res.status(500).json({ message: 'Server Error', error: error.message });
+    }
+};
+
+module.exports = { registerUser, loginUser, changePassword, deleteAccount };

@@ -1,7 +1,6 @@
 const Connection = require('../models/Connection');
 const User = require('../models/User');
 
-
 exports.sendConnectionRequest = async (req, res) => {
     try {
         const { targetUsername } = req.body; 
@@ -16,7 +15,7 @@ exports.sendConnectionRequest = async (req, res) => {
             return res.status(404).json({ message: 'User not found.' });
         }
 
-        if (recipient._id.equals(senderId)) {
+        if (recipient._id.toString() === senderId.toString()) {
             return res.status(400).json({ message: 'You cannot send a connection request to yourself.' });
         }
 
@@ -49,13 +48,13 @@ exports.sendConnectionRequest = async (req, res) => {
             status: 'pending',
         });
 
-        res.status(201).json({
+        return res.status(201).json({
             message: 'Connection request sent successfully!',
             connection: newConnection
         });
     }
     catch (error) {
-        res.status(500).json({ message: 'Server Error', error: error.message });
+        return res.status(500).json({ message: 'Server Error', error: error.message });
     }
 };
 
@@ -65,13 +64,13 @@ exports.getPendingRequests = async (req, res) => {
         const requests = await Connection.find({ 
             recipient: userId, status: 'pending' 
         }).populate('sender', 'username');
-        res.status(200).json(requests);
+        
+        return res.status(200).json(requests);
     }
     catch (error) {
-        res.status(500).json({ message: 'Server Error', error: error.message });
+        return res.status(500).json({ message: 'Server Error', error: error.message });
     }
 };
-
 
 exports.respondToRequest = async (req, res) => {
     try {
@@ -79,8 +78,6 @@ exports.respondToRequest = async (req, res) => {
         const { action } = req.body; 
         const currentUserId = req.user._id;
 
-
-  
         const connectionRequest = await Connection.findById(requestId).populate('sender recipient');
         
         if (!connectionRequest) {
@@ -98,26 +95,28 @@ exports.respondToRequest = async (req, res) => {
                 const sender = connectionRequest.sender;       
                 const recipient = connectionRequest.recipient; 
 
-                const payloadForSender = {
-                    connectionId: connectionRequest._id.toString(),
-                    userId: recipient._id.toString(),
-                    username: recipient.username
-                };
+                if (sender && recipient) {
+                    const payloadForSender = {
+                        connectionId: connectionRequest._id.toString(),
+                        userId: recipient._id.toString(),
+                        username: recipient.username
+                    };
 
-                const payloadForRecipient = {
-                    connectionId: connectionRequest._id.toString(),
-                    userId: sender._id.toString(),
-                    username: sender.username
-                };
+                    const payloadForRecipient = {
+                        connectionId: connectionRequest._id.toString(),
+                        userId: sender._id.toString(),
+                        username: sender.username
+                    };
 
-                const senderSocketId = onlineUsers.get(sender._id.toString());
-                if (senderSocketId) {
-                    io.to(senderSocketId).emit('connection_accepted', payloadForSender);
-                }
+                    const senderSocketId = onlineUsers.get(sender._id.toString());
+                    if (senderSocketId) {
+                        io.to(senderSocketId).emit('connection_accepted', payloadForSender);
+                    }
 
-                const recipientSocketId = onlineUsers.get(recipient._id.toString());
-                if (recipientSocketId) {
-                    io.to(recipientSocketId).emit('connection_accepted', payloadForRecipient);
+                    const recipientSocketId = onlineUsers.get(recipient._id.toString());
+                    if (recipientSocketId) {
+                        io.to(recipientSocketId).emit('connection_accepted', payloadForRecipient);
+                    }
                 }
             }
             return res.status(200).json({ message: "Request accepted successfully!" });
@@ -133,7 +132,7 @@ exports.respondToRequest = async (req, res) => {
         return res.status(400).json({ message: "Invalid action type." });
 
     } catch (error) {
-        res.status(500).json({ message: "Server error", error: error.message });
+        return res.status(500).json({ message: "Server error", error: error.message });
     }
 };
 
@@ -147,22 +146,27 @@ exports.getAcceptedConnections = async (req, res) => {
         }).populate('sender recipient', 'username lastSeen'); 
 
         const formattedList = connections.map(conn => {
-            const targetUser = conn.sender._id.equals(userId) ? conn.recipient : conn.sender;
+            // ✅ Robust Fallback Check: Guard against corrupted/deleted users in database
+            if (!conn.sender || !conn.recipient) return null;
+
+            // ✅ String conversion comparison ensures flawless cross-origin evaluation
+            const isSender = conn.sender._id.toString() === userId.toString();
+            const targetUser = isSender ? conn.recipient : conn.sender;
+
             return {
                 connectionId: conn._id,
                 userId: targetUser._id,
                 username: targetUser.username,
-                preserveHistory: conn.preserveHistory,
+                preserveHistory: conn.preserveHistory || false,
                 lastSeen: targetUser.lastSeen 
             };
-        });
+        }).filter(item => item !== null); // Clear broken references gracefully
 
-        res.status(200).json(formattedList);
+        return res.status(200).json(formattedList);
     } catch (error) {
-        res.status(500).json({ message: 'Server Error', error: error.message });
+        return res.status(500).json({ message: 'Server Error matching links', error: error.message });
     }
 };
-
 
 exports.getSentRequests = async (req, res) => {
     try {
@@ -173,17 +177,20 @@ exports.getSentRequests = async (req, res) => {
             status: 'pending' 
         }).populate('recipient', 'username');
 
-        const formattedList = requests.map(reqItem => ({
-            _id: reqItem._id,
-            recipient: {
-                _id: reqItem.recipient._id,
-                username: reqItem.recipient.username
-            },
-            createdAt: reqItem.createdAt
-        }));
+        const formattedList = requests.map(reqItem => {
+            if (!reqItem.recipient) return null;
+            return {
+                _id: reqItem._id,
+                recipient: {
+                    _id: reqItem.recipient._id,
+                    username: reqItem.recipient.username
+                },
+                createdAt: reqItem.createdAt
+            };
+        }).filter(item => item !== null);
 
-        res.status(200).json(formattedList);
+        return res.status(200).json(formattedList);
     } catch (error) {
-        res.status(500).json({ message: 'Server Error', error: error.message });
+        return res.status(500).json({ message: 'Server Error', error: error.message });
     }
 };
