@@ -21,28 +21,26 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
     } catch (err) {
       console.warn('Could not fetch TURN credentials, falling back to dynamic TURN/STUN backup:', err.message);
       
-      // ✅ FIX: Fixed target endpoints domain mapping from .relay.metered.ca to global.metered.ca
+      // ✅ FIX: Realigned to use consistent hardcoded infrastructure if connection fails
       return [
+        { urls: "stun:global.relay.metered.ca:80" },
         {
-          urls: "stun:global.metered.ca:80",
-        },
-        {
-          urls: "turn:global.metered.ca:80",
+          urls: "turn:global.relay.metered.ca:80",
           username: "5b0a0a3312d5ebf016c30014",
           credential: "3KhFRYRGZudKCqlf",
         },
         {
-          urls: "turn:global.metered.ca:80?transport=tcp",
+          urls: "turn:global.relay.metered.ca:80?transport=tcp",
           username: "5b0a0a3312d5ebf016c30014",
           credential: "3KhFRYRGZudKCqlf",
         },
         {
-          urls: "turn:global.metered.ca:443",
+          urls: "turn:global.relay.metered.ca:443",
           username: "5b0a0a3312d5ebf016c30014",
           credential: "3KhFRYRGZudKCqlf",
         },
         {
-          urls: "turns:global.metered.ca:443?transport=tcp",
+          urls: "turns:global.relay.metered.ca:443?transport=tcp",
           username: "5b0a0a3312d5ebf016c30014",
           credential: "3KhFRYRGZudKCqlf",
         }
@@ -137,7 +135,6 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
 
       stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
-      // ✅ FIX: Production Dual-Layer Stream Handler to safely catch separate audio & video tracks
       pc.ontrack = (event) => {
         if (remoteVideoRef.current) {
           if (event.streams && event.streams[0]) {
@@ -293,4 +290,4 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
       </div>
     </div>  
   );
-};
+};  

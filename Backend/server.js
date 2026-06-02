@@ -38,28 +38,29 @@ app.get('/api/turn-credentials', protect, async (req, res) => {
         const apiKey = process.env.METERED_API_KEY;
         const domain = process.env.METERED_DOMAIN;
 
+        // Fallback checks
         if (!apiKey || !domain) {
-            // ✅ FIX: Fixed hardcoded endpoints fallback route from .relay.metered.ca to global.metered.ca
+            console.log("⚠️ Metered environment variables missing, using structural fallback.");
             return res.json({
                 iceServers: [
-                    { urls: "stun:global.metered.ca:80" },
+                    { urls: "stun:global.relay.metered.ca:80" },
                     {
-                        urls: "turn:global.metered.ca:80",
+                        urls: "turn:global.relay.metered.ca:80",
                         username: "5b0a0a3312d5ebf016c30014",
                         credential: "3KhFRYRGZudKCqlf"
                     },
                     {
-                        urls: "turn:global.metered.ca:80?transport=tcp",
+                        urls: "turn:global.relay.metered.ca:80?transport=tcp",
                         username: "5b0a0a3312d5ebf016c30014",
                         credential: "3KhFRYRGZudKCqlf"
                     },
                     {
-                        urls: "turn:global.metered.ca:443",
+                        urls: "turn:global.relay.metered.ca:443",
                         username: "5b0a0a3312d5ebf016c30014",
                         credential: "3KhFRYRGZudKCqlf"
                     },
                     {
-                        urls: "turns:global.metered.ca:443?transport=tcp",
+                        urls: "turns:global.relay.metered.ca:443?transport=tcp",
                         username: "5b0a0a3312d5ebf016c30014",
                         credential: "3KhFRYRGZudKCqlf"
                     }
@@ -67,6 +68,7 @@ app.get('/api/turn-credentials', protect, async (req, res) => {
             });
         }
 
+        // ✅ Dynamic Fetch targeting your exact .metered.live app workspace endpoint
         const response = await fetch(
             `https://${domain}/api/v1/turn/credentials?apiKey=${apiKey}`
         );
@@ -79,29 +81,27 @@ app.get('/api/turn-credentials', protect, async (req, res) => {
         return res.json({ iceServers });
 
     } catch (err) {
-        console.error('Failed to fetch TURN credentials:', err.message);
-
-        // ✅ FIX: Fixed target endpoints domain mapping in the catch fallback block too
+        console.error('Failed to fetch TURN credentials, using structural fallback:', err.message);
         return res.json({
             iceServers: [
-                { urls: "stun:global.metered.ca:80" },
+                { urls: "stun:global.relay.metered.ca:80" },
                 {
-                    urls: "turn:global.metered.ca:80",
+                    urls: "turn:global.relay.metered.ca:80",
                     username: "5b0a0a3312d5ebf016c30014",
                     credential: "3KhFRYRGZudKCqlf"
                 },
                 {
-                    urls: "turn:global.metered.ca:80?transport=tcp",
+                    urls: "turn:global.relay.metered.ca:80?transport=tcp",
                     username: "5b0a0a3312d5ebf016c30014",
                     credential: "3KhFRYRGZudKCqlf"
                 },
                 {
-                    urls: "turn:global.metered.ca:443",
+                    urls: "turn:global.relay.metered.ca:443",
                     username: "5b0a0a3312d5ebf016c30014",
                     credential: "3KhFRYRGZudKCqlf"
                 },
                 {
-                    urls: "turns:global.metered.ca:443?transport=tcp",
+                    urls: "turns:global.relay.metered.ca:443?transport=tcp",
                     username: "5b0a0a3312d5ebf016c30014",
                     credential: "3KhFRYRGZudKCqlf"
                 }
