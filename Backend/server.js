@@ -39,13 +39,30 @@ app.get('/api/turn-credentials', protect, async (req, res) => {
         const domain = process.env.METERED_DOMAIN;
 
         if (!apiKey || !domain) {
-          
+            // ✅ FIX: Fixed hardcoded endpoints fallback route from .relay.metered.ca to global.metered.ca
             return res.json({
                 iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' },
-                    { urls: 'stun:stun3.l.google.com:19302' }
+                    { urls: "stun:global.metered.ca:80" },
+                    {
+                        urls: "turn:global.metered.ca:80",
+                        username: "5b0a0a3312d5ebf016c30014",
+                        credential: "3KhFRYRGZudKCqlf"
+                    },
+                    {
+                        urls: "turn:global.metered.ca:80?transport=tcp",
+                        username: "5b0a0a3312d5ebf016c30014",
+                        credential: "3KhFRYRGZudKCqlf"
+                    },
+                    {
+                        urls: "turn:global.metered.ca:443",
+                        username: "5b0a0a3312d5ebf016c30014",
+                        credential: "3KhFRYRGZudKCqlf"
+                    },
+                    {
+                        urls: "turns:global.metered.ca:443?transport=tcp",
+                        username: "5b0a0a3312d5ebf016c30014",
+                        credential: "3KhFRYRGZudKCqlf"
+                    }
                 ]
             });
         }
@@ -59,18 +76,35 @@ app.get('/api/turn-credentials', protect, async (req, res) => {
         }
 
         const iceServers = await response.json();
-
-        res.json({ iceServers });
+        return res.json({ iceServers });
 
     } catch (err) {
         console.error('Failed to fetch TURN credentials:', err.message);
 
-        res.json({
+        // ✅ FIX: Fixed target endpoints domain mapping in the catch fallback block too
+        return res.json({
             iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' },
-                { urls: 'stun:stun3.l.google.com:19302' }
+                { urls: "stun:global.metered.ca:80" },
+                {
+                    urls: "turn:global.metered.ca:80",
+                    username: "5b0a0a3312d5ebf016c30014",
+                    credential: "3KhFRYRGZudKCqlf"
+                },
+                {
+                    urls: "turn:global.metered.ca:80?transport=tcp",
+                    username: "5b0a0a3312d5ebf016c30014",
+                    credential: "3KhFRYRGZudKCqlf"
+                },
+                {
+                    urls: "turn:global.metered.ca:443",
+                    username: "5b0a0a3312d5ebf016c30014",
+                    credential: "3KhFRYRGZudKCqlf"
+                },
+                {
+                    urls: "turns:global.metered.ca:443?transport=tcp",
+                    username: "5b0a0a3312d5ebf016c30014",
+                    credential: "3KhFRYRGZudKCqlf"
+                }
             ]
         });
     }

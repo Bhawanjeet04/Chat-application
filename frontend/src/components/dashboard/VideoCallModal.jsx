@@ -19,16 +19,36 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
       });
       return res.data.iceServers;
     } catch (err) {
-      console.warn('Could not fetch TURN credentials, falling back to STUN only:', err.message);
+      console.warn('Could not fetch TURN credentials, falling back to dynamic TURN/STUN backup:', err.message);
+      
+      // ✅ FIX: Fixed target endpoints domain mapping from .relay.metered.ca to global.metered.ca
       return [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' }
+        {
+          urls: "stun:global.metered.ca:80",
+        },
+        {
+          urls: "turn:global.metered.ca:80",
+          username: "5b0a0a3312d5ebf016c30014",
+          credential: "3KhFRYRGZudKCqlf",
+        },
+        {
+          urls: "turn:global.metered.ca:80?transport=tcp",
+          username: "5b0a0a3312d5ebf016c30014",
+          credential: "3KhFRYRGZudKCqlf",
+        },
+        {
+          urls: "turn:global.metered.ca:443",
+          username: "5b0a0a3312d5ebf016c30014",
+          credential: "3KhFRYRGZudKCqlf",
+        },
+        {
+          urls: "turns:global.metered.ca:443?transport=tcp",
+          username: "5b0a0a3312d5ebf016c30014",
+          credential: "3KhFRYRGZudKCqlf",
+        }
       ];
     }
   };
-
 
   useEffect(() => {
     if (!socket || !selectedChatUser) return;
@@ -44,7 +64,7 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
         try {
           await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.answer));
           setCallStatus('Connected Live');
-          processIceQueue(); 
+          await processIceQueue(); 
         } catch (err) {
           console.error("Error setting remote description answer", err);
         }
@@ -117,9 +137,17 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
 
       stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
+      // ✅ FIX: Production Dual-Layer Stream Handler to safely catch separate audio & video tracks
       pc.ontrack = (event) => {
-        if (remoteVideoRef.current && event.streams[0]) {
-          remoteVideoRef.current.srcObject = event.streams[0];
+        if (remoteVideoRef.current) {
+          if (event.streams && event.streams[0]) {
+            remoteVideoRef.current.srcObject = event.streams[0];
+          } else {
+            if (!remoteVideoRef.current.srcObject) {
+              remoteVideoRef.current.srcObject = new MediaStream();
+            }
+            remoteVideoRef.current.srcObject.addTrack(event.track);
+          }
           setCallStatus('Connected Live');
         }
       };
