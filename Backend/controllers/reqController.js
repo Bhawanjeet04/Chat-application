@@ -146,10 +146,9 @@ exports.getAcceptedConnections = async (req, res) => {
         }).populate('sender recipient', 'username lastSeen'); 
 
         const formattedList = connections.map(conn => {
-            // ✅ Robust Fallback Check: Guard against corrupted/deleted users in database
+       
             if (!conn.sender || !conn.recipient) return null;
 
-            // ✅ String conversion comparison ensures flawless cross-origin evaluation
             const isSender = conn.sender._id.toString() === userId.toString();
             const targetUser = isSender ? conn.recipient : conn.sender;
 
@@ -160,7 +159,7 @@ exports.getAcceptedConnections = async (req, res) => {
                 preserveHistory: conn.preserveHistory || false,
                 lastSeen: targetUser.lastSeen 
             };
-        }).filter(item => item !== null); // Clear broken references gracefully
+        }).filter(item => item !== null); 
 
         return res.status(200).json(formattedList);
     } catch (error) {

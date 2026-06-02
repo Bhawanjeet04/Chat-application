@@ -344,7 +344,6 @@ export const DashboardPage = () => {
 
       <div className="flex-1 flex flex-col bg-[var(--bg-panel)] relative min-w-0 transition-colors duration-200">
 
-        {/* 💡 FIX: This mobile bar now automatically hides its title layout completely when rightView is set to 'chat' */}
         <div className={`flex items-center md:hidden px-4 py-3 bg-[var(--bg-header)] border-b border-[var(--border-color)] shrink-0 transition-colors duration-200 ${
           rightView === 'chat' ? 'hidden' : ''
         }`}>

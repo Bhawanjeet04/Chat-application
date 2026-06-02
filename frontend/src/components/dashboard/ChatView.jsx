@@ -30,7 +30,6 @@ export const ChatView = ({
   return (
     <div className="flex-1 flex flex-col h-full w-full bg-[var(--bg-panel)] transition-colors duration-200">
       
-      {/* Chat Header Tray Section */}
       <div className="p-4 bg-[var(--bg-header)] border-b border-[var(--border-color)] flex items-center justify-between transition-colors duration-200">
         <div className='flex items-center gap-3'>
           <button onClick={onBack} className="text-gray-500 text-2xl hover:text-[var(--text-main)] transition">
@@ -41,7 +40,7 @@ export const ChatView = ({
             <h2 className="text-sm font-bold text-[var(--text-main)] tracking-wide">
               {selectedChatUser.username}
             </h2>
-            {/* 💡 Real-Time Status Subtext Banner Label Container */}
+
             <span className={`text-[11px] font-medium tracking-wide transition-colors ${
               isOnline ? 'text-green-500' : 'text-[var(--text-muted)]'
             }`}>
@@ -51,7 +50,7 @@ export const ChatView = ({
         </div>
 
         <div className="flex items-center space-x-3">
-          {/* History Toggle Button */}
+        
           <button
             type="button"
             onClick={() => onToggleHistory(!preserveHistory)}
@@ -65,7 +64,6 @@ export const ChatView = ({
             <span>{preserveHistory ? 'History: On' : 'History: Off'}</span>
           </button>
 
-          {/* Video Call Trigger Action Button */}
           <button 
             type="button"
             onClick={triggerVideoCallNotice}
@@ -76,7 +74,6 @@ export const ChatView = ({
         </div>
       </div>
 
-      {/* Messages Stream View Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[var(--bg-panel)] transition-colors duration-200">
         {messages.length === 0 ? (
           <div className="h-full flex items-center justify-center text-xs text-[var(--text-muted)] italic">
@@ -101,7 +98,6 @@ export const ChatView = ({
         <div ref={messageEndRef} />
       </div>
 
-      {/* Bottom Message Input Control Box Footer */}
       <div className="p-4 bg-[var(--bg-header)] border-t border-[var(--border-color)] transition-colors duration-200">
         <form onSubmit={handleSubmit} className="flex space-x-2 max-w-5xl mx-auto">
           <input 

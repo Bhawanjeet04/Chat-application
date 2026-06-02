@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* 🌙 Dark Theme Core Defaults (Your Existing Palette) */
+
 :root, .dark {
   --bg-main: #121214;
   --bg-panel: #0f0f11;
@@ -16,7 +16,6 @@
   --border-color: #26262b;
 }
 
-/* ☀️ Light Theme Palette Extensions */
 .light {
   --bg-main: #f3f4f6;
   --bg-panel: #ffffff;

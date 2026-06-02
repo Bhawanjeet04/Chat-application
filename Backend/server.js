@@ -5,6 +5,7 @@ const connectDB = require('./config/db');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const { protect } = require('./middleware/authMiddleware');
 
 const authRoutes = require('./routes/authRoutes');
 const reqRoutes = require('./routes/reqRoutes');
@@ -30,6 +31,50 @@ connectDB();
 app.use('/api/auth', authRoutes);
 app.use('/api/requests', reqRoutes);
 app.use('/api/chats', chatRoutes);
+
+
+app.get('/api/turn-credentials', protect, async (req, res) => {
+    try {
+        const apiKey = process.env.METERED_API_KEY;
+        const domain = process.env.METERED_DOMAIN;
+
+        if (!apiKey || !domain) {
+          
+            return res.json({
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:stun3.l.google.com:19302' }
+                ]
+            });
+        }
+
+        const response = await fetch(
+            `https://${domain}/api/v1/turn/credentials?apiKey=${apiKey}`
+        );
+
+        if (!response.ok) {
+            throw new Error(`Metered API error: ${response.status}`);
+        }
+
+        const iceServers = await response.json();
+
+        res.json({ iceServers });
+
+    } catch (err) {
+        console.error('Failed to fetch TURN credentials:', err.message);
+
+        res.json({
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun3.l.google.com:19302' }
+            ]
+        });
+    }
+});
 
 app.get('/', (req, res) => {
     res.send('Chat Application Backend API is online and waiting for requests.');
@@ -111,7 +156,6 @@ io.on('connection', (socket) => {
 
     recipientId = recipientId.toString();
 
-    
     if (inVideoCall.has(currentUserId) || inVideoCall.has(recipientId)) {
       socket.emit('video_call_busy', { 
         message: "User is currently busy on another call." 
@@ -156,8 +200,6 @@ io.on('connection', (socket) => {
       socket.to(recipientSocketId).emit('video_call_ended');
     }
   });
-
-  
 
   socket.on('update_preserve_toggle', (data) => {
     const { recipientId, connectionId, preserveHistory } = data;

@@ -20,7 +20,6 @@ const registerUser = async (req, res) => {
             return res.status(400).json({ message: "Username is already taken" });
         }
 
-        // ✅ Save it explicitly lowercased to match all future query tokens
         const user = await User.create({ username: sanitizedUsername, password });
 
         if (user) {

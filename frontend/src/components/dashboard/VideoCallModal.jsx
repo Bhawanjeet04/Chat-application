@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import axios from 'axios';
 
 export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isIncomingCall, incomingOffer, onClose }) => {
   const [callStatus, setCallStatus] = useState('Connecting...');
@@ -8,18 +9,27 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
   const remoteVideoRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const localStreamRef = useRef(null);
-  const iceCandidatesQueueRef = useRef([]); // ✅ Added queue to process candidates arriving early
+  const iceCandidatesQueueRef = useRef([]); 
 
-  const rtcConfig = {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun3.l.google.com:19302' }
-    ]
+  const fetchIceServers = async () => {
+    try {
+      const serverBase = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      const res = await axios.get(`${serverBase}/api/turn-credentials`, {
+        withCredentials: true
+      });
+      return res.data.iceServers;
+    } catch (err) {
+      console.warn('Could not fetch TURN credentials, falling back to STUN only:', err.message);
+      return [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' }
+      ];
+    }
   };
 
-  // ✅ Step 1: Manage Socket Signal Receivers in a stable, isolated Hook layout
+
   useEffect(() => {
     if (!socket || !selectedChatUser) return;
 
@@ -34,7 +44,7 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
         try {
           await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(data.answer));
           setCallStatus('Connected Live');
-          processIceQueue(); // ✅ Flush any early candidates waiting for remote configuration
+          processIceQueue(); 
         } catch (err) {
           console.error("Error setting remote description answer", err);
         }
@@ -45,7 +55,7 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
       if (!data.candidate) return;
       
       const pc = peerConnectionRef.current;
-      // ✅ Production Guard: If remote state isn't ready yet, queue the candidate safely
+
       if (pc && pc.remoteDescription) {
         try {
           await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
@@ -70,7 +80,6 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
     };
   }, [socket, selectedChatUser]);
 
-  // ✅ Step 2: Handle Independent Call Initialization Loop
   useEffect(() => {
     if (isCallAccepted) {
       initializeCall();
@@ -81,7 +90,6 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
     return () => cleanUpTracks();
   }, [isCallAccepted]);
 
-  // ✅ Helper to empty staging ICE candidates once session properties load
   const processIceQueue = async () => {
     const pc = peerConnectionRef.current;
     if (!pc || !pc.remoteDescription) return;
@@ -98,23 +106,21 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
 
   const initializeCall = async () => {
     try {
-      // 1. Warm up camera and mic media channels before initializing WebRTC engine
+      const iceServers = await fetchIceServers();
+
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       localStreamRef.current = stream;
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
-      // 2. Initialize connection engine now that hardware tracks are available
-      const pc = new RTCPeerConnection(rtcConfig);
+      const pc = new RTCPeerConnection({ iceServers });
       peerConnectionRef.current = pc;
 
-      // 3. Bind active hardware feeds onto signaling channel
       stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
       pc.ontrack = (event) => {
         if (remoteVideoRef.current && event.streams[0]) {
           remoteVideoRef.current.srcObject = event.streams[0];
           setCallStatus('Connected Live');
-          
         }
       };
 
@@ -127,7 +133,6 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
         }
       };
 
-      // 4. Perform step-by-step handshake logic securely
       if (isIncomingCall && incomingOffer) {
         await pc.setRemoteDescription(new RTCSessionDescription(incomingOffer));
         const answer = await pc.createAnswer();
@@ -138,7 +143,7 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
           answer
         });
         setCallStatus('Connected Live');
-        await processIceQueue(); // Flush candidates if offer processing completed
+        await processIceQueue(); 
       } else {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
@@ -159,7 +164,10 @@ export const VideoCallModal = ({ socket, selectedChatUser, currentUserId, isInco
   };
 
   const handleEndCall = () => {
-    socket.emit('end_video_call', { recipientId: selectedChatUser._id || selectedChatUser.userId });
+    socket.emit('end_video_call', {
+      recipientId: selectedChatUser._id || selectedChatUser.userId,
+      senderId: currentUserId  
+    });
     cleanUpTracks();
     onClose();
   };
