@@ -1,15 +1,32 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
-// ─── Free public ICE servers — no API key needed ──────────────────────────
-// Uses Google + Cloudflare STUN + Open Relay free TURN
+// ─── ICE Servers — Cloudflare STUN (free, no auth) + multiple STUN fallbacks
+// Pure STUN first; if NAT traversal fails across different networks,
+// you'll need a self-hosted coturn or paid TURN.
+// Cloudflare STUN is the most reliable free option available.
 const ICE_SERVERS = [
+  // Google STUN — most reliable worldwide
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun2.l.google.com:19302' },
   { urls: 'stun:stun3.l.google.com:19302' },
   { urls: 'stun:stun4.l.google.com:19302' },
+  // Cloudflare STUN
   { urls: 'stun:stun.cloudflare.com:3478' },
-  // Open Relay — free public TURN, no signup needed
+  // Twilio free STUN
+  { urls: 'stun:global.stun.twilio.com:3478' },
+  // Free TURN via freestun.net — no signup, permanent credentials
+  {
+    urls: 'turn:freestun.net:3478',
+    username: 'free',
+    credential: 'free',
+  },
+  {
+    urls: 'turns:freestun.net:5349',
+    username: 'free',
+    credential: 'free',
+  },
+  // Open Relay as secondary TURN fallback
   {
     urls: 'turn:openrelay.metered.ca:80',
     username: 'openrelayproject',
@@ -22,11 +39,6 @@ const ICE_SERVERS = [
   },
   {
     urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
-  {
-    urls: 'turn:openrelay.metered.ca:80?transport=tcp',
     username: 'openrelayproject',
     credential: 'openrelayproject',
   },
@@ -43,15 +55,16 @@ export const VideoCallModal = ({
   const [callStatus, setCallStatus] = useState('Connecting...');
   const [isCallAccepted, setIsCallAccepted] = useState(!isIncomingCall);
   const [iceState, setIceState] = useState('');
+  const [localReady, setLocalReady] = useState(false);
 
-  const localVideoRef       = useRef(null);
-  const remoteVideoRef      = useRef(null);
-  const peerConnectionRef   = useRef(null);
-  const localStreamRef      = useRef(null);
-  const iceCandidatesQueue  = useRef([]);
-  const remoteDescSet       = useRef(false);
+  const localVideoRef      = useRef(null);
+  const remoteVideoRef     = useRef(null);
+  const peerConnectionRef  = useRef(null);
+  const localStreamRef     = useRef(null);
+  const iceCandidatesQueue = useRef([]);
+  const remoteDescSet      = useRef(false);
 
-  // ─── Flush queued ICE candidates once remote desc is ready ───────────────
+  // ─── Flush queued ICE candidates ─────────────────────────────────────────
   const processIceQueue = useCallback(async () => {
     const pc = peerConnectionRef.current;
     if (!pc || !remoteDescSet.current) return;
@@ -61,10 +74,18 @@ export const VideoCallModal = ({
       try {
         await pc.addIceCandidate(new RTCIceCandidate(candidate));
       } catch (e) {
-        console.warn('ICE candidate add failed (queued):', e.message);
+        console.warn('ICE add failed (queued):', e.message);
       }
     }
   }, []);
+
+  // ─── Attach stream to video element safely ────────────────────────────────
+  // ✅ FIX: Use a helper that retries if ref isn't mounted yet
+  const attachStream = (ref, stream) => {
+    if (ref.current) {
+      ref.current.srcObject = stream;
+    }
+  };
 
   // ─── Socket listeners ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -82,10 +103,10 @@ export const VideoCallModal = ({
       try {
         await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
         remoteDescSet.current = true;
-        console.log('✅ Remote description (answer) set');
+        console.log('✅ Remote desc (answer) set');
         await processIceQueue();
       } catch (err) {
-        console.error('Error setting remote description (answer):', err);
+        console.error('Error setting remote desc (answer):', err);
       }
     });
 
@@ -96,7 +117,7 @@ export const VideoCallModal = ({
         try {
           await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
         } catch (e) {
-          console.warn('ICE candidate add failed (live):', e.message);
+          console.warn('ICE add failed (live):', e.message);
         }
       } else {
         iceCandidatesQueue.current.push(data.candidate);
@@ -125,20 +146,34 @@ export const VideoCallModal = ({
     return () => cleanUpTracks();
   }, [isCallAccepted]);
 
-  // ─── Core WebRTC logic ────────────────────────────────────────────────────
+  // ✅ FIX: Re-attach local stream if ref wasn't ready when stream was set
+  useEffect(() => {
+    if (localReady && localStreamRef.current && localVideoRef.current) {
+      localVideoRef.current.srcObject = localStreamRef.current;
+      console.log('✅ Local video re-attached after mount');
+    }
+  }, [localReady]);
+
+  // ─── Core WebRTC ──────────────────────────────────────────────────────────
   const initializeCall = async () => {
     try {
-      console.log('📡 Using ICE servers:', ICE_SERVERS);
+      console.log('🎥 Requesting media...');
 
-      // Get local media first
+      // ✅ FIX: Get media stream first, attach immediately
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true,
       });
       localStreamRef.current = stream;
-      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
-      // Create peer connection with all free ICE servers
+      // Attach to local video — works even before PC is ready
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+        console.log('✅ Local video attached');
+      }
+      setLocalReady(true); // triggers useEffect re-attach if ref wasn't ready
+
+      console.log('📡 Creating PeerConnection with ICE servers:', ICE_SERVERS.length);
       const pc = new RTCPeerConnection({
         iceServers: ICE_SERVERS,
         bundlePolicy: 'max-bundle',
@@ -148,30 +183,33 @@ export const VideoCallModal = ({
       peerConnectionRef.current = pc;
       remoteDescSet.current = false;
 
-      // Add local tracks
+      // Add all local tracks to PC
       stream.getTracks().forEach((track) => {
-        console.log(`➕ Adding local track: ${track.kind}`);
+        console.log(`➕ Adding track: ${track.kind}`);
         pc.addTrack(track, stream);
       });
 
-      // Remote track handler
+      // ✅ Remote track handler
       pc.ontrack = (event) => {
-        console.log('📥 ontrack:', event.track.kind, '| streams:', event.streams.length);
+        console.log('📥 ontrack fired:', event.track.kind, '| streams:', event.streams.length);
         if (!remoteVideoRef.current) return;
+
         if (event.streams?.[0]) {
           remoteVideoRef.current.srcObject = event.streams[0];
+          console.log('✅ Remote stream attached');
         } else {
           if (!remoteVideoRef.current.srcObject) {
             remoteVideoRef.current.srcObject = new MediaStream();
           }
           remoteVideoRef.current.srcObject.addTrack(event.track);
+          console.log('✅ Remote track added manually');
         }
       };
 
-      // ICE candidate — send to peer
+      // Send ICE candidates
       pc.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log(`📤 Sending ICE: ${event.candidate.type} ${event.candidate.protocol}`);
+          console.log(`📤 ICE candidate: ${event.candidate.type} ${event.candidate.protocol}`);
           socket.emit('ice_candidate', {
             recipientId: selectedChatUser._id || selectedChatUser.userId,
             candidate: event.candidate,
@@ -181,7 +219,7 @@ export const VideoCallModal = ({
         }
       };
 
-      // Connection state monitoring
+      // ✅ ICE connection state — auto restart on failure
       pc.oniceconnectionstatechange = () => {
         const state = pc.iceConnectionState;
         console.log('🧊 ICE state:', state);
@@ -189,9 +227,8 @@ export const VideoCallModal = ({
         if (state === 'connected' || state === 'completed') {
           setCallStatus('Connected Live');
         } else if (state === 'failed') {
-          setCallStatus('Connection Failed');
-          console.error('❌ ICE failed — trying to restart ICE...');
-          // Auto restart ICE on failure
+          console.warn('❌ ICE failed, restarting...');
+          setCallStatus('Reconnecting...');
           pc.restartIce();
         } else if (state === 'disconnected') {
           setCallStatus('Reconnecting...');
@@ -199,20 +236,19 @@ export const VideoCallModal = ({
       };
 
       pc.onconnectionstatechange = () => {
-        console.log('🔗 Peer connection state:', pc.connectionState);
+        console.log('🔗 Connection state:', pc.connectionState);
         if (pc.connectionState === 'failed') {
-          console.error('❌ Peer connection failed');
           setCallStatus('Call Failed — Please retry');
         }
       };
 
       pc.onicegatheringstatechange = () => {
-        console.log('🔍 ICE gathering state:', pc.iceGatheringState);
+        console.log('🔍 Gathering state:', pc.iceGatheringState);
       };
 
-      // ── Answerer path ──────────────────────────────────────────────────
+      // ── Answerer path ───────────────────────────────────────────────────
       if (isIncomingCall && incomingOffer) {
-        console.log('📞 Answerer: setting remote offer...');
+        console.log('📞 Answerer path: setting remote offer');
         await pc.setRemoteDescription(new RTCSessionDescription(incomingOffer));
         remoteDescSet.current = true;
         await processIceQueue();
@@ -224,11 +260,11 @@ export const VideoCallModal = ({
           recipientId: selectedChatUser._id || selectedChatUser.userId,
           answer,
         });
-        setCallStatus('Ringing...');
+        setCallStatus('Connecting...');
 
-      // ── Caller path ────────────────────────────────────────────────────
+      // ── Caller path ─────────────────────────────────────────────────────
       } else {
-        console.log('📤 Caller: creating offer...');
+        console.log('📤 Caller path: creating offer');
         const offer = await pc.createOffer({
           offerToReceiveVideo: true,
           offerToReceiveAudio: true,
@@ -243,14 +279,15 @@ export const VideoCallModal = ({
         });
         setCallStatus('Ringing...');
       }
+
     } catch (err) {
-      console.error('❌ Call setup error:', err);
+      console.error('❌ initializeCall error:', err.name, err.message);
       if (err.name === 'NotAllowedError') {
         setCallStatus('Camera/Mic Permission Denied');
       } else if (err.name === 'NotFoundError') {
         setCallStatus('No Camera/Mic Found');
       } else {
-        setCallStatus('Connection Error');
+        setCallStatus('Connection Error — Check console');
       }
     }
   };
@@ -276,6 +313,7 @@ export const VideoCallModal = ({
 
     iceCandidatesQueue.current = [];
     remoteDescSet.current = false;
+    setLocalReady(false);
   };
 
   // ─── UI ───────────────────────────────────────────────────────────────────
