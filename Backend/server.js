@@ -5,7 +5,6 @@ const connectDB = require('./config/db');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-const { protect } = require('./middleware/authMiddleware');
 
 const authRoutes = require('./routes/authRoutes');
 const reqRoutes = require('./routes/reqRoutes');
@@ -31,84 +30,6 @@ connectDB();
 app.use('/api/auth', authRoutes);
 app.use('/api/requests', reqRoutes);
 app.use('/api/chats', chatRoutes);
-
-
-app.get('/api/turn-credentials', protect, async (req, res) => {
-    try {
-        const apiKey = process.env.METERED_API_KEY;
-        const domain = process.env.METERED_DOMAIN;
-
-        // Fallback checks
-        if (!apiKey || !domain) {
-            console.log("⚠️ Metered environment variables missing, using structural fallback.");
-            return res.json({
-                iceServers: [
-                    { urls: "stun:global.relay.metered.ca:80" },
-                    {
-                        urls: "turn:global.relay.metered.ca:80",
-                        username: "5b0a0a3312d5ebf016c30014",
-                        credential: "3KhFRYRGZudKCqlf"
-                    },
-                    {
-                        urls: "turn:global.relay.metered.ca:80?transport=tcp",
-                        username: "5b0a0a3312d5ebf016c30014",
-                        credential: "3KhFRYRGZudKCqlf"
-                    },
-                    {
-                        urls: "turn:global.relay.metered.ca:443",
-                        username: "5b0a0a3312d5ebf016c30014",
-                        credential: "3KhFRYRGZudKCqlf"
-                    },
-                    {
-                        urls: "turns:global.relay.metered.ca:443?transport=tcp",
-                        username: "5b0a0a3312d5ebf016c30014",
-                        credential: "3KhFRYRGZudKCqlf"
-                    }
-                ]
-            });
-        }
-
-        // ✅ Dynamic Fetch targeting your exact .metered.live app workspace endpoint
-        const response = await fetch(
-            `https://${domain}/api/v1/turn/credentials?apiKey=${apiKey}`
-        );
-
-        if (!response.ok) {
-            throw new Error(`Metered API error: ${response.status}`);
-        }
-
-        const iceServers = await response.json();
-        return res.json({ iceServers });
-
-    } catch (err) {
-        console.error('Failed to fetch TURN credentials, using structural fallback:', err.message);
-        return res.json({
-            iceServers: [
-                { urls: "stun:global.relay.metered.ca:80" },
-                {
-                    urls: "turn:global.relay.metered.ca:80",
-                    username: "5b0a0a3312d5ebf016c30014",
-                    credential: "3KhFRYRGZudKCqlf"
-                },
-                {
-                    urls: "turn:global.relay.metered.ca:80?transport=tcp",
-                    username: "5b0a0a3312d5ebf016c30014",
-                    credential: "3KhFRYRGZudKCqlf"
-                },
-                {
-                    urls: "turn:global.relay.metered.ca:443",
-                    username: "5b0a0a3312d5ebf016c30014",
-                    credential: "3KhFRYRGZudKCqlf"
-                },
-                {
-                    urls: "turns:global.relay.metered.ca:443?transport=tcp",
-                    username: "5b0a0a3312d5ebf016c30014",
-                    credential: "3KhFRYRGZudKCqlf"
-                }
-            ]
-        });
-    }
-});
 
 app.get('/', (req, res) => {
     res.send('Chat Application Backend API is online and waiting for requests.');
