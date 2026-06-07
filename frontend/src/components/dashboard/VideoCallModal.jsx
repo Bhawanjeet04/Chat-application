@@ -5,26 +5,26 @@ const ICE_SERVERS = {
     {
       urls: "stun:stun.relay.metered.ca:80",
     },
-    {
-      urls: "turn:global.relay.metered.ca:80",
-      username: "5b0a0a3312d5ebf016c30014",
-      credential: "3KhFRYRGZudkCqlf",
-    },
-    {
-      urls: "turn:global.relay.metered.ca:80?transport=tcp",
-      username: "5b0a0a3312d5ebf016c30014",
-      credential: "3KhFRYRGZudkCqlf",
-    },
-    {
-      urls: "turn:global.relay.metered.ca:443",
-      username: "5b0a0a3312d5ebf016c30014",
-      credential: "3KhFRYRGZudkCqlf",
-    },
-    {
-      urls: "turns:global.relay.metered.ca:443?transport=tcp",
-      username: "5b0a0a3312d5ebf016c30014",
-      credential: "3KhFRYRGZudkCqlf",
-    },
+    // {
+    //   urls: "turn:global.relay.metered.ca:80",
+    //   username: "5b0a0a3312d5ebf016c30014",
+    //   credential: "3KhFRYRGZudkCqlf",
+    // },
+    // {
+    //   urls: "turn:global.relay.metered.ca:80?transport=tcp",
+    //   username: "5b0a0a3312d5ebf016c30014",
+    //   credential: "3KhFRYRGZudkCqlf",
+    // },
+    // {
+    //   urls: "turn:global.relay.metered.ca:443",
+    //   username: "5b0a0a3312d5ebf016c30014",
+    //   credential: "3KhFRYRGZudkCqlf",
+    // },
+    // {
+    //   urls: "turns:global.relay.metered.ca:443?transport=tcp",
+    //   username: "5b0a0a3312d5ebf016c30014",
+    //   credential: "3KhFRYRGZudkCqlf",
+    // },
   ],
 };
 
