@@ -46,11 +46,13 @@ export const VideoCallModal = ({
   const remoteVideoRef = useRef(null);
   const peerRef = useRef(null);
   const streamRef = useRef(null);
+  const iceCandidateQueue = useRef([]); // ← queue for early ICE candidates
 
   useEffect(() => {
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
       .then((stream) => {
+        console.log('✅ Got camera/mic stream');
         streamRef.current = stream;
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
@@ -59,29 +61,48 @@ export const VideoCallModal = ({
           startCall(stream);
         }
       })
-      .catch(() => {
+      .catch((e) => {
+        console.error('❌ getUserMedia failed', e);
         setError('Camera/microphone access denied. Please allow permissions.');
       });
 
     socket.on('call-accepted', (signal) => {
+      console.log('✅ call-accepted received', signal);
       setCallState('connected');
       peerRef.current
         ?.setRemoteDescription(new RTCSessionDescription(signal))
-        .catch(() => setError('Failed to connect. Please try again.'));
+        .then(() => {
+          console.log('✅ Remote description set on caller side');
+          // flush queued ICE candidates now that remote is set
+          iceCandidateQueue.current.forEach((candidate) => {
+            peerRef.current
+              .addIceCandidate(new RTCIceCandidate(candidate))
+              .then(() => console.log('✅ Queued ICE candidate added'))
+              .catch((e) => console.error('❌ Queued ICE candidate failed', e));
+          });
+          iceCandidateQueue.current = [];
+        })
+        .catch((e) => console.error('❌ setRemoteDescription failed on caller', e));
     });
 
     socket.on('ice-candidate', ({ candidate }) => {
-      if (candidate && peerRef.current) {
-        // Queue candidate if remote description not set yet
-        if (peerRef.current.remoteDescription) {
-          peerRef.current
-            .addIceCandidate(new RTCIceCandidate(candidate))
-            .catch(console.error);
-        }
+      console.log('📨 ICE candidate received', candidate);
+      if (!candidate) return;
+
+      if (peerRef.current && peerRef.current.remoteDescription) {
+        peerRef.current
+          .addIceCandidate(new RTCIceCandidate(candidate))
+          .then(() => console.log('✅ ICE candidate added'))
+          .catch((e) => console.error('❌ addIceCandidate failed', e));
+      } else {
+        // remote description not set yet — queue it
+        console.warn('⚠️ ICE candidate queued (remoteDescription not set yet)');
+        iceCandidateQueue.current.push(candidate);
       }
     });
 
     socket.on('call-ended', () => {
+      console.log('📵 call-ended received');
       cleanup();
       onClose();
     });
@@ -95,11 +116,16 @@ export const VideoCallModal = ({
   }, []);
 
   const createPeerConnection = (stream) => {
+    console.log('🔧 Creating peer connection');
     const peer = new RTCPeerConnection(ICE_SERVERS);
 
-    stream.getTracks().forEach((track) => peer.addTrack(track, stream));
+    stream.getTracks().forEach((track) => {
+      peer.addTrack(track, stream);
+      console.log('✅ Track added:', track.kind);
+    });
 
     peer.ontrack = (event) => {
+      console.log('✅ Remote track received:', event.streams);
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = event.streams[0];
       }
@@ -110,41 +136,45 @@ export const VideoCallModal = ({
         const targetUserId = incomingCall
           ? incomingCall.callerId
           : selectedChatUser._id;
+        console.log('📤 Sending ICE candidate to:', targetUserId);
         socket.emit('ice-candidate', {
           to: targetUserId,
           candidate: event.candidate,
         });
+      } else {
+        console.log('✅ ICE gathering complete');
       }
-    };
-
-    // ✅ FIXED — only kill on 'failed', never on 'disconnected'
-    // 'disconnected' is a normal temporary state during TURN negotiation
-    peer.onconnectionstatechange = () => {
-      console.log('WebRTC state:', peer.connectionState);
-      if (peer.connectionState === 'connected') {
-        setCallState('connected');
-      }
-      if (peer.connectionState === 'failed') {
-        setError('Connection failed. Please try again.');
-        cleanup();
-      }
-      // 'disconnected' → ignore, WebRTC recovers this automatically
-      // 'closed' → ignore, we handle this via endCall ourselves
     };
 
     peer.oniceconnectionstatechange = () => {
-      console.log('ICE state:', peer.iceConnectionState);
+      console.log('🧊 ICE connection state:', peer.iceConnectionState);
+    };
+
+    peer.onconnectionstatechange = () => {
+      console.log('🔗 Connection state:', peer.connectionState);
+      if (peer.connectionState === 'connected') {
+        console.log('✅ Peers fully connected!');
+        setCallState('connected');
+      }
+      if (peer.connectionState === 'failed') {
+        console.error('❌ Connection failed');
+        setError('Connection failed. Please try again.');
+        cleanup();
+      }
+      // disconnected = temporary, do NOT kill the call here
     };
 
     return peer;
   };
 
   const startCall = async (stream) => {
+    console.log('📞 startCall fired, calling:', selectedChatUser._id);
     const peer = createPeerConnection(stream);
     peerRef.current = peer;
 
     const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
+    console.log('✅ Offer created and set as local description');
 
     socket.emit('call-user', {
       userToCall: selectedChatUser._id,
@@ -152,32 +182,53 @@ export const VideoCallModal = ({
       from: currentUserId,
       name: 'User',
     });
+    console.log('✅ call-user emitted to:', selectedChatUser._id);
   };
 
   const answerCall = async () => {
-    if (!streamRef.current) return;
+    console.log('📞 answerCall fired');
+    if (!streamRef.current) {
+      console.error('❌ No stream available when answering');
+      return;
+    }
     setCallState('connected');
 
     const peer = createPeerConnection(streamRef.current);
     peerRef.current = peer;
 
+    console.log('Setting remote description from offer...');
     await peer.setRemoteDescription(
       new RTCSessionDescription(incomingCall.signal)
     );
+    console.log('✅ Remote description set on receiver');
+
+    // flush any queued ICE candidates
+    iceCandidateQueue.current.forEach((candidate) => {
+      peer
+        .addIceCandidate(new RTCIceCandidate(candidate))
+        .then(() => console.log('✅ Queued ICE candidate added after answer'))
+        .catch((e) => console.error('❌ Queued ICE failed after answer', e));
+    });
+    iceCandidateQueue.current = [];
+
     const answer = await peer.createAnswer();
     await peer.setLocalDescription(answer);
+    console.log('✅ Answer created and set as local description');
 
     socket.emit('answer-call', {
       signal: answer,
       to: incomingCall.callerId,
     });
+    console.log('✅ answer-call emitted to:', incomingCall.callerId);
   };
 
   const cleanup = () => {
+    console.log('🧹 Cleaning up peer connection and stream');
     peerRef.current?.close();
     peerRef.current = null;
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
+    iceCandidateQueue.current = [];
   };
 
   const endCall = () => {
@@ -310,6 +361,5 @@ export const VideoCallModal = ({
         </div>
       </div>
     </div>
-    
   );
 };
