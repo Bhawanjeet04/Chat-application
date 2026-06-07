@@ -66,7 +66,7 @@ export const ChatView = ({
 
           <button 
             type="button"
-            onClick={triggerVideoCallNotice}
+            onClick={() => triggerVideoCallNotice(selectedChatUser)}
             className="px-3 py-1.5 bg-[var(--bg-sidebar)] hover:bg-[var(--bg-main)] border border-[var(--border-color)] rounded text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-main)] transition active:scale-95"
           >
             video call

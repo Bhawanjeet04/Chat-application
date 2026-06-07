@@ -92,26 +92,30 @@ export const DashboardPage = () => {
     }
   };
 
-  useEffect(() => {
-    if (!socket) return;
+useEffect(() => {
+  if (!socket) return;
 
-    socket.on('video_call_offer_received', (data) => {
-      const isValidFriend = activeConnections.some(conn => conn.userId === data.senderId);
-      if (isValidFriend) {
-        const companion = activeConnections.find(conn => conn.userId === data.senderId);
-        setSelectedChatUser({
-          _id: companion.userId,
-          username: companion.username,
-          connectionId: companion.connectionId
-        });
-        setActiveIncomingOffer(data.offer);
-        setIsIncomingCall(true);
-        setShowVideoModal(true);
-        toast(`Incoming call from @${companion.username}`, { duration: 4000, icon: '📞' });
-      }
+    // Listen for incoming call from the other person
+    socket.on('incoming-call', ({ signal, callerId, name }) => {
+      const isValidFriend = activeConnections.some(conn => conn.userId === callerId);
+      if (!isValidFriend) return; // ignore calls from non-connections
+
+      const companion = activeConnections.find(conn => conn.userId === callerId);
+
+      // Auto-select the chat user so VideoCallModal knows who is calling
+      setSelectedChatUser({
+        _id: companion.userId,
+        username: companion.username,
+        connectionId: companion.connectionId
+      });
+
+      setActiveIncomingOffer({ signal, callerId, name }); // store the full incoming call info
+      setIsIncomingCall(true);
+      setShowVideoModal(true);
+      toast(`📞 Incoming call from @${companion.username}`, { duration: 6000 });
     });
 
-    return () => socket.off('video_call_offer_received');
+    return () => socket.off('incoming-call');
   }, [socket, activeConnections]);
 
   useEffect(() => {
@@ -122,7 +126,8 @@ export const DashboardPage = () => {
     }
   }, [user]);
 
-  useEffect(() => {
+// FIXED
+useEffect(() => {
     const newSocket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000');
     setSocket(newSocket);
 
@@ -136,9 +141,13 @@ export const DashboardPage = () => {
     });
 
     newSocket.on('preserve_toggle_updated', (data) => {
-      if (selectedChatUser && selectedChatUser.connectionId === data.connectionId) {
-        setPreserveHistory(data.preserveHistory);
-      }
+      // Remove selectedChatUser from here — use setState callback instead
+      setSelectedChatUser((currentSelected) => {
+        if (currentSelected && currentSelected.connectionId === data.connectionId) {
+          setPreserveHistory(data.preserveHistory);
+        }
+        return currentSelected;
+      });
       setActiveConnections(prev => prev.map(conn =>
         conn.connectionId === data.connectionId
           ? { ...conn, preserveHistory: data.preserveHistory }
@@ -194,9 +203,10 @@ export const DashboardPage = () => {
       newSocket.off('receive_message');
       newSocket.off('connection_removed');
       newSocket.off('get_online_users');
+      newSocket.off('preserve_toggle_updated');
       newSocket.disconnect();
     };
-  }, [user, selectedChatUser]);
+}, [user]); // ← only user, nothing else
 
   const handleSendRequest = async (targetUsername, successCallback) => {
     try {
@@ -304,8 +314,7 @@ export const DashboardPage = () => {
           socket={socket}
           selectedChatUser={selectedChatUser}
           currentUserId={user?.id}
-          isIncomingCall={isIncomingCall}
-          incomingOffer={activeIncomingOffer}
+          incomingCall={isIncomingCall ? activeIncomingOffer : null}
           onClose={() => {
             setShowVideoModal(false);
             setIsIncomingCall(false);

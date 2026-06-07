@@ -104,77 +104,37 @@ io.on('connection', (socket) => {
       console.log(` Message relayed to socket ${recipientSocketId}`);
     }
   });
-
-  socket.on('video_call_offer', (data) => {
-    let { recipientId, offer, connectionId, senderId } = data;
-    const currentUserId = (socket.userId || senderId).toString();
-
-    recipientId = recipientId.toString();
-
-    if (inVideoCall.has(currentUserId) || inVideoCall.has(recipientId)) {
-      socket.emit('video_call_busy', { 
-        message: "User is currently busy on another call." 
-      });
-      return;
-    }
-
-    const recipientSocketId = onlineUsers.get(recipientId);
+// VIDEO CALL SIGNALING
+  socket.on('call-user', ({ userToCall, signalData, from, name }) => {
+    const recipientSocketId = onlineUsers.get(userToCall);
     if (recipientSocketId) {
-      inVideoCall.add(currentUserId);
-      inVideoCall.add(recipientId);
-      socket.userId = currentUserId;
-      socket.recipientId = recipientId;
-
-      socket.to(recipientSocketId).emit('video_call_offer_received', {
-        senderId: currentUserId,
-        offer,
-        connectionId
+      io.to(recipientSocketId).emit('incoming-call', {
+        signal: signalData,
+        from,
+        name,
+        callerId: from
       });
     }
   });
 
-  socket.on('video_call_answer', (data) => {
-    const { recipientId, answer } = data;
-    const recipientSocketId = onlineUsers.get(recipientId);
+  socket.on('answer-call', ({ to, signal }) => {
+    const recipientSocketId = onlineUsers.get(to);
     if (recipientSocketId) {
-      socket.to(recipientSocketId).emit('video_call_answer_received', {
-        answer
-      });
+      io.to(recipientSocketId).emit('call-accepted', signal);
     }
   });
 
-  socket.on('end_video_call', (data) => {
-    const { recipientId, senderId } = data;
-    
-    if (senderId) inVideoCall.delete(senderId.toString());
-    if (recipientId) inVideoCall.delete(recipientId.toString());
-    if (socket.userId) inVideoCall.delete(socket.userId.toString());
-
-    const recipientSocketId = onlineUsers.get(recipientId);
+  socket.on('ice-candidate', ({ to, candidate }) => {
+    const recipientSocketId = onlineUsers.get(to);
     if (recipientSocketId) {
-      socket.to(recipientSocketId).emit('video_call_ended');
+      io.to(recipientSocketId).emit('ice-candidate', { candidate });
     }
   });
 
-  socket.on('update_preserve_toggle', (data) => {
-    const { recipientId, connectionId, preserveHistory } = data;
-    const recipientSocketId = onlineUsers.get(recipientId);
+  socket.on('end-call', ({ to }) => {
+    const recipientSocketId = onlineUsers.get(to);
     if (recipientSocketId) {
-      socket.to(recipientSocketId).emit('preserve_toggle_updated', {
-        connectionId,
-        preserveHistory
-      });
+      io.to(recipientSocketId).emit('call-ended');
     }
   });
-
-  socket.on('ice_candidate', (data) => {
-    const { recipientId, candidate } = data;
-    const recipientSocketId = onlineUsers.get(recipientId);
-    if (recipientSocketId) {
-      socket.to(recipientSocketId).emit('ice_candidate_received', {
-        candidate
-      });
-    }
-  });
-
 });
