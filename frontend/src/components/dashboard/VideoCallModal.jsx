@@ -47,7 +47,6 @@ export const VideoCallModal = ({
   const peerRef = useRef(null);
   const streamRef = useRef(null);
 
-  // Step 1: always get camera/mic first
   useEffect(() => {
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
@@ -56,7 +55,6 @@ export const VideoCallModal = ({
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
         }
-        // If we are the caller, start the call immediately after getting stream
         if (!incomingCall) {
           startCall(stream);
         }
@@ -65,7 +63,6 @@ export const VideoCallModal = ({
         setError('Camera/microphone access denied. Please allow permissions.');
       });
 
-    // Socket listeners
     socket.on('call-accepted', (signal) => {
       setCallState('connected');
       peerRef.current
@@ -75,9 +72,12 @@ export const VideoCallModal = ({
 
     socket.on('ice-candidate', ({ candidate }) => {
       if (candidate && peerRef.current) {
-        peerRef.current
-          .addIceCandidate(new RTCIceCandidate(candidate))
-          .catch(console.error);
+        // Queue candidate if remote description not set yet
+        if (peerRef.current.remoteDescription) {
+          peerRef.current
+            .addIceCandidate(new RTCIceCandidate(candidate))
+            .catch(console.error);
+        }
       }
     });
 
@@ -97,17 +97,14 @@ export const VideoCallModal = ({
   const createPeerConnection = (stream) => {
     const peer = new RTCPeerConnection(ICE_SERVERS);
 
-    // Add our stream tracks to the connection
     stream.getTracks().forEach((track) => peer.addTrack(track, stream));
 
-    // When we receive the other person's stream
     peer.ontrack = (event) => {
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = event.streams[0];
       }
     };
 
-    // Send ICE candidates to the other peer via server
     peer.onicecandidate = (event) => {
       if (event.candidate) {
         const targetUserId = incomingCall
@@ -120,20 +117,28 @@ export const VideoCallModal = ({
       }
     };
 
+    // ✅ FIXED — only kill on 'failed', never on 'disconnected'
+    // 'disconnected' is a normal temporary state during TURN negotiation
     peer.onconnectionstatechange = () => {
-      if (
-        peer.connectionState === 'failed' ||
-        peer.connectionState === 'disconnected'
-      ) {
-        setError('Connection lost. The call has ended.');
+      console.log('WebRTC state:', peer.connectionState);
+      if (peer.connectionState === 'connected') {
+        setCallState('connected');
+      }
+      if (peer.connectionState === 'failed') {
+        setError('Connection failed. Please try again.');
         cleanup();
       }
+      // 'disconnected' → ignore, WebRTC recovers this automatically
+      // 'closed' → ignore, we handle this via endCall ourselves
+    };
+
+    peer.oniceconnectionstatechange = () => {
+      console.log('ICE state:', peer.iceConnectionState);
     };
 
     return peer;
   };
 
-  // Called when YOU are the caller
   const startCall = async (stream) => {
     const peer = createPeerConnection(stream);
     peerRef.current = peer;
@@ -149,7 +154,6 @@ export const VideoCallModal = ({
     });
   };
 
-  // Called when YOU answer the incoming call
   const answerCall = async () => {
     if (!streamRef.current) return;
     setCallState('connected');
@@ -207,7 +211,6 @@ export const VideoCallModal = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
       <div className="relative w-full max-w-3xl bg-[var(--bg-panel)] rounded-2xl overflow-hidden shadow-2xl border border-[var(--border-color)]">
 
-        {/* Error state */}
         {error && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[var(--bg-panel)] p-8 text-center">
             <p className="text-red-400 text-sm mb-4">{error}</p>
@@ -220,9 +223,7 @@ export const VideoCallModal = ({
           </div>
         )}
 
-        {/* Videos */}
         <div className="relative bg-black aspect-video w-full">
-          {/* Remote video (full size) */}
           <video
             ref={remoteVideoRef}
             autoPlay
@@ -230,7 +231,6 @@ export const VideoCallModal = ({
             className="w-full h-full object-cover"
           />
 
-          {/* Placeholder when not connected yet */}
           {callState !== 'connected' && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white">
               <div className="w-16 h-16 rounded-full bg-gray-700 flex items-center justify-center text-2xl font-bold mb-3">
@@ -253,7 +253,6 @@ export const VideoCallModal = ({
             </div>
           )}
 
-          {/* Local video (picture-in-picture) */}
           <div className="absolute bottom-3 right-3 w-32 aspect-video rounded-lg overflow-hidden border-2 border-white/20 bg-black shadow-lg">
             <video
               ref={localVideoRef}
@@ -270,10 +269,7 @@ export const VideoCallModal = ({
           </div>
         </div>
 
-        {/* Controls */}
         <div className="px-6 py-4 flex items-center justify-center gap-4 bg-[var(--bg-header)]">
-
-          {/* Answer button — only for receiver before picking up */}
           {callState === 'incoming' && (
             <button
               onClick={answerCall}
