@@ -310,5 +310,6 @@ export const VideoCallModal = ({
         </div>
       </div>
     </div>
+    
   );
 };
