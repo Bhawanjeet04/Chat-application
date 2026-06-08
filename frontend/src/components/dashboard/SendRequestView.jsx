@@ -24,7 +24,7 @@ export const SendRequestView = ({ username, onBack, onSendRequest, socket }) => 
     if (!socket) return;
 
     const handleConnectionAccepted = (data) => {
-      setSentRequests((prevRequests) => 
+      setSentRequests((prevRequests) =>
         prevRequests.filter((req) => req._id !== data.connectionId)
       );
     };
@@ -39,39 +39,39 @@ export const SendRequestView = ({ username, onBack, onSendRequest, socket }) => 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!searchUsername.trim()) return;
-    
+
     onSendRequest(searchUsername.trim(), () => {
       setSearchUsername('');
-      fetchSentRequests(); 
+      fetchSentRequests();
     });
   };
 
   return (
-    <div className="flex-1 flex flex-col p-6 bg-[var(--bg-panel)] transition-colors duration-200">
-      <div className="flex items-center space-x-4 mb-6 border-b border-[var(--border-color)] pb-4 gap-[5%] pl-3 transition-colors duration-200">
-        <button onClick={onBack} className="text-gray-500 text-2xl hover:text-[var(--text-main)] transition">
+    <div className="flex-1 flex flex-col p-4 sm:p-6 bg-[var(--bg-panel)] transition-colors duration-200">
+      <div className="flex items-center gap-3 mb-5 sm:mb-6 border-b border-[var(--border-color)] pb-4 transition-colors duration-200">
+        <button onClick={onBack} className="text-gray-500 text-2xl hover:text-[var(--text-main)] transition shrink-0">
           <GoArrowLeft />
         </button>
-        <h2 className="text-lg font-bold tracking-wide text-[var(--text-main)]">Hello, {username}</h2>
+        <h2 className="text-base sm:text-lg font-bold tracking-wide text-[var(--text-main)] truncate">Hello, {username}</h2>
       </div>
 
-      <div className="max-w-md w-full mx-auto bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-6 mt-10 shadow-xl flex flex-col space-y-6 transition-colors duration-200">
+      <div className="max-w-md w-full mx-auto bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-4 sm:p-6 mt-4 sm:mt-10 shadow-xl flex flex-col space-y-5 transition-colors duration-200">
         <div>
           <h3 className="text-sm font-semibold text-[var(--text-muted)] mb-4 tracking-wider uppercase text-center transition-colors">
             Search for User
           </h3>
           <form onSubmit={handleSubmit} className="flex space-x-2">
-            <input 
+            <input
               type="text"
               placeholder="search_username"
               value={searchUsername}
               onChange={(e) => setSearchUsername(e.target.value)}
-              className="flex-1 px-4 py-2.5 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-blue-500 transition-colors duration-200"
+              className="flex-1 px-3 sm:px-4 py-2.5 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-blue-500 transition-colors duration-200"
               required
             />
-            <button 
+            <button
               type="submit"
-              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 font-medium rounded-lg text-sm tracking-wider text-white transition active:scale-95"
+              className="px-4 sm:px-5 py-2.5 bg-blue-600 hover:bg-blue-700 font-medium rounded-lg text-sm tracking-wider text-white transition active:scale-95 shrink-0"
             >
               invite
             </button>
@@ -85,14 +85,14 @@ export const SendRequestView = ({ username, onBack, onSendRequest, socket }) => 
             </h4>
             <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
               {sentRequests.map((req) => (
-                <div 
-                  key={req._id} 
+                <div
+                  key={req._id}
                   className="flex justify-between items-center bg-[var(--bg-header)] p-3 rounded-lg border border-[var(--border-color)] transition-colors duration-200"
                 >
-                  <span className="text-sm font-medium text-[var(--text-main)]">
+                  <span className="text-sm font-medium text-[var(--text-main)] truncate mr-2">
                     {req.recipient?.username || 'Unknown User'}
                   </span>
-                  <span className="text-[10px] bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 px-2 py-0.5 rounded border border-yellow-500/20 font-semibold uppercase tracking-wider select-none">
+                  <span className="text-[10px] bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 px-2 py-0.5 rounded border border-yellow-500/20 font-semibold uppercase tracking-wider select-none shrink-0">
                     Pending
                   </span>
                 </div>

@@ -96,6 +96,18 @@ io.on('connection', (socket) => {
     io.emit('get_online_users', Array.from(onlineUsers.keys()));
   });
 
+  socket.on('update_preserve_toggle', ({ recipientId, connectionId, preserveHistory }) => {
+  console.log(`History toggle: ${preserveHistory} → connection ${connectionId} → user ${recipientId}`);
+  const recipientSocketId = onlineUsers.get(recipientId);
+  console.log(`Recipient socket: ${recipientSocketId}`);
+  if (recipientSocketId) {
+    io.to(recipientSocketId).emit('preserve_toggle_updated', {
+      connectionId,
+      preserveHistory
+    });
+  }
+});
+
   socket.on('send_message', (data) => {
     const { recipientId } = data;
     const recipientSocketId = onlineUsers.get(recipientId);
@@ -104,7 +116,7 @@ io.on('connection', (socket) => {
       console.log(` Message relayed to socket ${recipientSocketId}`);
     }
   });
-// VIDEO CALL SIGNALING
+  
   socket.on('call-user', ({ userToCall, signalData, from, name }) => {
     const recipientSocketId = onlineUsers.get(userToCall);
     if (recipientSocketId) {

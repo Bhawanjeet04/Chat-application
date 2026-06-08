@@ -5,26 +5,7 @@ const ICE_SERVERS = {
     {
       urls: "stun:stun.relay.metered.ca:80",
     },
-    // {
-    //   urls: "turn:global.relay.metered.ca:80",
-    //   username: "5b0a0a3312d5ebf016c30014",
-    //   credential: "3KhFRYRGZudkCqlf",
-    // },
-    // {
-    //   urls: "turn:global.relay.metered.ca:80?transport=tcp",
-    //   username: "5b0a0a3312d5ebf016c30014",
-    //   credential: "3KhFRYRGZudkCqlf",
-    // },
-    // {
-    //   urls: "turn:global.relay.metered.ca:443",
-    //   username: "5b0a0a3312d5ebf016c30014",
-    //   credential: "3KhFRYRGZudkCqlf",
-    // },
-    // {
-    //   urls: "turns:global.relay.metered.ca:443?transport=tcp",
-    //   username: "5b0a0a3312d5ebf016c30014",
-    //   credential: "3KhFRYRGZudkCqlf",
-    // },
+
   ],
 };
 
@@ -46,7 +27,7 @@ export const VideoCallModal = ({
   const remoteVideoRef = useRef(null);
   const peerRef = useRef(null);
   const streamRef = useRef(null);
-  const iceCandidateQueue = useRef([]); // ← queue for early ICE candidates
+  const iceCandidateQueue = useRef([]);
 
   useEffect(() => {
     navigator.mediaDevices
@@ -73,7 +54,6 @@ export const VideoCallModal = ({
         ?.setRemoteDescription(new RTCSessionDescription(signal))
         .then(() => {
           console.log('✅ Remote description set on caller side');
-          // flush queued ICE candidates now that remote is set
           iceCandidateQueue.current.forEach((candidate) => {
             peerRef.current
               .addIceCandidate(new RTCIceCandidate(candidate))
@@ -95,7 +75,6 @@ export const VideoCallModal = ({
           .then(() => console.log('✅ ICE candidate added'))
           .catch((e) => console.error('❌ addIceCandidate failed', e));
       } else {
-        // remote description not set yet — queue it
         console.warn('⚠️ ICE candidate queued (remoteDescription not set yet)');
         iceCandidateQueue.current.push(candidate);
       }
@@ -161,7 +140,6 @@ export const VideoCallModal = ({
         setError('Connection failed. Please try again.');
         cleanup();
       }
-      // disconnected = temporary, do NOT kill the call here
     };
 
     return peer;
@@ -202,7 +180,6 @@ export const VideoCallModal = ({
     );
     console.log('✅ Remote description set on receiver');
 
-    // flush any queued ICE candidates
     iceCandidateQueue.current.forEach((candidate) => {
       peer
         .addIceCandidate(new RTCIceCandidate(candidate))
@@ -258,9 +235,10 @@ export const VideoCallModal = ({
     }
   };
 
-  return (
+
+return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
-      <div className="relative w-full max-w-3xl bg-[var(--bg-panel)] rounded-2xl overflow-hidden shadow-2xl border border-[var(--border-color)]">
+      <div className="relative w-full h-full sm:h-auto sm:max-w-3xl sm:m-4 bg-[var(--bg-panel)] sm:rounded-2xl overflow-hidden shadow-2xl border-0 sm:border border-[var(--border-color)]">
 
         {error && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[var(--bg-panel)] p-8 text-center">
@@ -274,37 +252,38 @@ export const VideoCallModal = ({
           </div>
         )}
 
-        <div className="relative bg-black aspect-video w-full">
+        <div className="relative bg-black w-full h-[calc(100vh-80px)] sm:h-auto sm:aspect-video">
+
           <video
             ref={remoteVideoRef}
             autoPlay
             playsInline
-            className="w-full h-full object-cover"
+            className="absolute inset-0 w-full h-full object-cover"
           />
 
           {callState !== 'connected' && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white">
-              <div className="w-16 h-16 rounded-full bg-gray-700 flex items-center justify-center text-2xl font-bold mb-3">
+              <div className="w-20 h-20 sm:w-16 sm:h-16 rounded-full bg-gray-700 flex items-center justify-center text-3xl sm:text-2xl font-bold mb-3">
                 {selectedChatUser?.username?.[0]?.toUpperCase() ||
                   incomingCall?.name?.[0]?.toUpperCase() ||
                   '?'}
               </div>
               {callState === 'calling' && (
                 <>
-                  <p className="text-sm font-medium">{selectedChatUser?.username}</p>
-                  <p className="text-xs text-gray-400 mt-1 animate-pulse">Calling...</p>
+                  <p className="text-base sm:text-sm font-medium">{selectedChatUser?.username}</p>
+                  <p className="text-sm sm:text-xs text-gray-400 mt-1 animate-pulse">Calling...</p>
                 </>
               )}
               {callState === 'incoming' && (
                 <>
-                  <p className="text-sm font-medium">{incomingCall?.name}</p>
-                  <p className="text-xs text-gray-400 mt-1">Incoming video call</p>
+                  <p className="text-base sm:text-sm font-medium">{incomingCall?.name}</p>
+                  <p className="text-sm sm:text-xs text-gray-400 mt-1">Incoming video call</p>
                 </>
               )}
             </div>
           )}
 
-          <div className="absolute bottom-3 right-3 w-32 aspect-video rounded-lg overflow-hidden border-2 border-white/20 bg-black shadow-lg">
+          <div className="absolute bottom-4 right-4 w-28 sm:w-32 aspect-video rounded-xl overflow-hidden border-2 border-white/20 bg-black shadow-lg">
             <video
               ref={localVideoRef}
               autoPlay
@@ -313,18 +292,19 @@ export const VideoCallModal = ({
               className={`w-full h-full object-cover ${isCamOff ? 'opacity-0' : ''}`}
             />
             {isCamOff && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-800 text-gray-400 text-xs">
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-800 text-gray-400 text-[10px] sm:text-xs">
                 Cam off
               </div>
             )}
           </div>
         </div>
 
-        <div className="px-6 py-4 flex items-center justify-center gap-4 bg-[var(--bg-header)]">
+        <div className="h-[80px] px-4 flex items-center justify-center gap-3 sm:gap-4 bg-[var(--bg-header)]">
+
           {callState === 'incoming' && (
             <button
               onClick={answerCall}
-              className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition active:scale-95"
+              className="px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition active:scale-95"
             >
               Answer
             </button>
@@ -354,7 +334,7 @@ export const VideoCallModal = ({
 
           <button
             onClick={endCall}
-            className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition active:scale-95"
+            className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition active:scale-95"
           >
             End Call
           </button>

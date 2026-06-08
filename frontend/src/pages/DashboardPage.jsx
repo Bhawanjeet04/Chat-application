@@ -92,24 +92,24 @@ export const DashboardPage = () => {
     }
   };
 
-useEffect(() => {
-  if (!socket) return;
+  useEffect(() => {
+    if (!socket) return;
 
-    // Listen for incoming call from the other person
     socket.on('incoming-call', ({ signal, callerId, name }) => {
       const isValidFriend = activeConnections.some(conn => conn.userId === callerId);
-      if (!isValidFriend) return; // ignore calls from non-connections
+      if (!isValidFriend) return;
 
       const companion = activeConnections.find(conn => conn.userId === callerId);
 
-      // Auto-select the chat user so VideoCallModal knows who is calling
       setSelectedChatUser({
         _id: companion.userId,
+        userId: companion.userId,
         username: companion.username,
-        connectionId: companion.connectionId
+        connectionId: companion.connectionId,
+        lastSeen: companion.lastSeen
       });
 
-      setActiveIncomingOffer({ signal, callerId, name }); // store the full incoming call info
+      setActiveIncomingOffer({ signal, callerId, name });
       setIsIncomingCall(true);
       setShowVideoModal(true);
       toast(`📞 Incoming call from @${companion.username}`, { duration: 6000 });
@@ -126,8 +126,7 @@ useEffect(() => {
     }
   }, [user]);
 
-// FIXED
-useEffect(() => {
+  useEffect(() => {
     const newSocket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000');
     setSocket(newSocket);
 
@@ -141,13 +140,15 @@ useEffect(() => {
     });
 
     newSocket.on('preserve_toggle_updated', (data) => {
-      // Remove selectedChatUser from here — use setState callback instead
+      setPreserveHistory(data.preserveHistory);
+      
       setSelectedChatUser((currentSelected) => {
         if (currentSelected && currentSelected.connectionId === data.connectionId) {
-          setPreserveHistory(data.preserveHistory);
+          return { ...currentSelected, preserveHistory: data.preserveHistory };
         }
         return currentSelected;
       });
+
       setActiveConnections(prev => prev.map(conn =>
         conn.connectionId === data.connectionId
           ? { ...conn, preserveHistory: data.preserveHistory }
@@ -206,7 +207,7 @@ useEffect(() => {
       newSocket.off('preserve_toggle_updated');
       newSocket.disconnect();
     };
-}, [user]); // ← only user, nothing else
+  }, [user]);
 
   const handleSendRequest = async (targetUsername, successCallback) => {
     try {
@@ -240,8 +241,16 @@ useEffect(() => {
   };
 
   const handleSelectChat = async (conn) => {
-    setSelectedChatUser({ _id: conn.userId, userId: conn.userId, username: conn.username, connectionId: conn.connectionId, lastSeen: conn.lastSeen });
-    setPreserveHistory(conn.preserveHistory || false);
+    const currentPreserveState = conn.preserveHistory || false;
+    setSelectedChatUser({ 
+      _id: conn.userId, 
+      userId: conn.userId, 
+      username: conn.username, 
+      connectionId: conn.connectionId, 
+      lastSeen: conn.lastSeen,
+      preserveHistory: currentPreserveState
+    });
+    setPreserveHistory(currentPreserveState);
     setRightView('chat');
     setSidebarOpen(false);
 
@@ -284,11 +293,20 @@ useEffect(() => {
       }, { withCredentials: true });
 
       setPreserveHistory(newState);
+      
+      setSelectedChatUser((currentSelected) => {
+        if (currentSelected && currentSelected.connectionId === selectedChatUser.connectionId) {
+          return { ...currentSelected, preserveHistory: newState };
+        }
+        return currentSelected;
+      });
+
       setActiveConnections(prev => prev.map(conn =>
         conn.connectionId === selectedChatUser.connectionId
           ? { ...conn, preserveHistory: newState }
           : conn
       ));
+      
       socket.emit('update_preserve_toggle', {
         recipientId: selectedChatUser._id,
         connectionId: selectedChatUser.connectionId,
@@ -308,7 +326,6 @@ useEffect(() => {
 
   return (
     <div className="flex h-screen w-screen bg-[var(--bg-main)] text-[var(--text-main)] overflow-hidden font-sans select-none antialiased transition-colors duration-200">
-
       {showVideoModal && selectedChatUser && (
         <VideoCallModal
           socket={socket}
@@ -352,7 +369,6 @@ useEffect(() => {
       </div>
 
       <div className="flex-1 flex flex-col bg-[var(--bg-panel)] relative min-w-0 transition-colors duration-200">
-
         <div className={`flex items-center md:hidden px-4 py-3 bg-[var(--bg-header)] border-b border-[var(--border-color)] shrink-0 transition-colors duration-200 ${
           rightView === 'chat' ? 'hidden' : ''
         }`}>

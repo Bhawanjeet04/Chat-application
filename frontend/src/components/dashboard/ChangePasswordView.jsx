@@ -32,7 +32,7 @@ export const ChangePasswordView = ({ onBack }) => {
         newPassword: formData.newPassword
       });
       toast.success(res.data?.message || "Password updated successfully!");
-      onBack(); 
+      onBack();
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to update password.");
     } finally {
@@ -41,23 +41,23 @@ export const ChangePasswordView = ({ onBack }) => {
   };
 
   return (
-    <div className="flex-1 flex flex-col p-6 bg-[var(--bg-panel)] transition-colors duration-200">
-      <div className="flex items-center space-x-4 mb-6 border-b border-[var(--border-color)] pb-4 pl-3 gap-[40%] transition-colors duration-200">
-        <button onClick={onBack} className="text-gray-500 text-2xl hover:text-[var(--text-main)] transition">
+    <div className="flex-1 flex flex-col p-4 sm:p-6 bg-[var(--bg-panel)] transition-colors duration-200">
+      <div className="flex items-center gap-3 mb-5 sm:mb-6 border-b border-[var(--border-color)] pb-4 transition-colors duration-200">
+        <button onClick={onBack} className="text-gray-500 text-2xl hover:text-[var(--text-main)] transition shrink-0">
           <GoArrowLeft />
         </button>
-        <h2 className="text-lg font-bold tracking-wide text-[var(--text-main)]">Account Security Setting</h2>
+        <h2 className="text-base sm:text-lg font-bold tracking-wide text-[var(--text-main)] truncate">Account Security Setting</h2>
       </div>
 
-      <div className="max-w-md w-full mx-auto bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-6 mt-10 shadow-xl flex flex-col space-y-6 transition-colors duration-200">
+      <div className="max-w-md w-full mx-auto bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-4 sm:p-6 mt-4 sm:mt-10 shadow-xl flex flex-col space-y-6 transition-colors duration-200">
         <div>
           <h3 className="text-sm font-semibold text-[var(--text-muted)] mb-1 tracking-wider uppercase">Update Password</h3>
           <p className="text-xs text-[var(--text-muted)] mb-4">Ensure your account uses a complex string value sequence to remain protected.</p>
-          
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">Current Password</label>
-              <input 
+              <input
                 type="password"
                 name="currentPassword"
                 placeholder="••••••••"
@@ -70,7 +70,7 @@ export const ChangePasswordView = ({ onBack }) => {
 
             <div>
               <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">New Password</label>
-              <input 
+              <input
                 type="password"
                 name="newPassword"
                 placeholder="••••••••"
@@ -83,7 +83,7 @@ export const ChangePasswordView = ({ onBack }) => {
 
             <div>
               <label className="block text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">Confirm New Password</label>
-              <input 
+              <input
                 type="password"
                 name="confirmPassword"
                 placeholder="••••••••"
@@ -94,7 +94,7 @@ export const ChangePasswordView = ({ onBack }) => {
               />
             </div>
 
-            <button 
+            <button
               type="submit"
               disabled={loading}
               className="w-full mt-2 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:opacity-50 font-medium rounded-lg text-sm tracking-wider text-white transition active:scale-[0.98]"
